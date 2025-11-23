@@ -1,0 +1,152 @@
+# ============================================================================
+# WOTI Attendance V2 - Docker Compose Configuration
+# ============================================================================
+# Run with: docker-compose up -d
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # PostgreSQL Database
+  # ==========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: woti_attendance_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: woti_attendance
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - woti_network
+
+  # ==========================================================================
+  # PgBouncer - Connection Pooler
+  # ==========================================================================
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: woti_attendance_pgbouncer
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://postgres:${DB_PASSWORD:-postgres}@postgres:5432/woti_attendance
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 100
+      MIN_POOL_SIZE: 20
+      RESERVE_POOL_SIZE: 10
+      RESERVE_POOL_TIMEOUT: 3
+    ports:
+      - "6432:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - woti_network
+
+  # ==========================================================================
+  # Application Server
+  # ==========================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: woti_attendance_app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+      DB_HOST: pgbouncer
+      DB_PORT: 5432
+      DB_NAME: woti_attendance
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_POOL_MIN: ${DB_POOL_MIN:-20}
+      DB_POOL_MAX: ${DB_POOL_MAX:-100}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - woti_network
+
+  # ==========================================================================
+  # Redis (Optional - for rate limiting and caching)
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: woti_attendance_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - woti_network
+
+  # ==========================================================================
+  # Nginx Reverse Proxy (Optional)
+  # ==========================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: woti_attendance_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - woti_network
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  woti_network:
+    driver: bridge
