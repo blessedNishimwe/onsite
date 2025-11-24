@@ -258,6 +258,106 @@ const validateQueryParams = (req, res, next) => {
   next();
 };
 
+/**
+ * Validate self-registration (signup) data
+ */
+const validateSignup = (req, res, next) => {
+  const errors = [];
+  const { email, phone, password, first_name, last_name, role, facility_id } = req.body;
+  
+  // Required fields
+  if (!email) errors.push('Email is required');
+  else if (!isValidEmail(email)) errors.push('Invalid email format');
+  
+  if (!phone) errors.push('Phone number is required');
+  else if (!isValidPhone(phone)) errors.push('Invalid phone number format');
+  
+  if (!password) errors.push('Password is required');
+  else {
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      errors.push(...passwordValidation.errors);
+    }
+  }
+  
+  if (!first_name) errors.push('First name is required');
+  if (!last_name) errors.push('Last name is required');
+  
+  if (!role) errors.push('Role is required');
+  else {
+    // Restrict roles for self-registration (no admin or supervisor roles)
+    const allowedRoles = ['tester', 'data_clerk', 'focal'];
+    if (!allowedRoles.includes(role)) {
+      errors.push('Invalid role. Allowed roles for self-registration: tester, data_clerk, focal');
+    }
+  }
+  
+  // Optional facility_id validation
+  if (facility_id && !isValidUUID(facility_id)) {
+    errors.push('Invalid facility ID');
+  }
+  
+  if (errors.length > 0) {
+    return res.status(400).json({
+      error: 'Validation Error',
+      message: 'Invalid signup data',
+      errors
+    });
+  }
+  
+  // Sanitize string inputs
+  req.body.first_name = sanitizeString(first_name);
+  req.body.last_name = sanitizeString(last_name);
+  req.body.email = email.toLowerCase().trim();
+  
+  next();
+};
+
+/**
+ * Validate email verification token
+ */
+const validateVerificationToken = (req, res, next) => {
+  const errors = [];
+  const { token } = req.body;
+  
+  if (!token) {
+    errors.push('Verification token is required');
+  }
+  
+  if (errors.length > 0) {
+    return res.status(400).json({
+      error: 'Validation Error',
+      message: 'Invalid verification data',
+      errors
+    });
+  }
+  
+  next();
+};
+
+/**
+ * Validate resend verification email request
+ */
+const validateResendVerification = (req, res, next) => {
+  const errors = [];
+  const { email } = req.body;
+  
+  if (!email) errors.push('Email is required');
+  else if (!isValidEmail(email)) errors.push('Invalid email format');
+  
+  if (errors.length > 0) {
+    return res.status(400).json({
+      error: 'Validation Error',
+      message: 'Invalid email data',
+      errors
+    });
+  }
+  
+  req.body.email = email.toLowerCase().trim();
+  
+  next();
+};
+
 module.exports = {
   validateRegistration,
   validateLogin,
@@ -265,5 +365,8 @@ module.exports = {
   validateFacility,
   validateAttendance,
   validateUUIDParam,
-  validateQueryParams
+  validateQueryParams,
+  validateSignup,
+  validateVerificationToken,
+  validateResendVerification
 };

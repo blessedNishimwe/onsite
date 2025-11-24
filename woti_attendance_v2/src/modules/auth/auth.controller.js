@@ -120,10 +120,68 @@ const getMe = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Self-registration (signup)
+ * POST /api/auth/signup
+ */
+const signup = asyncHandler(async (req, res) => {
+  const userData = req.body;
+  const ipAddress = req.ip || req.connection.remoteAddress;
+  const userAgent = req.headers['user-agent'];
+  
+  const result = await authService.signup(userData, ipAddress, userAgent);
+  
+  res.status(201).json({
+    success: true,
+    message: result.message,
+    data: {
+      user: result.user
+    }
+  });
+});
+
+/**
+ * Verify email with token
+ * POST /api/auth/verify-email
+ */
+const verifyEmail = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  
+  const result = await authService.verifyEmail(token);
+  
+  res.status(200).json({
+    success: true,
+    message: 'Email verified successfully. You can now login.',
+    data: {
+      user: result.user,
+      token: result.token,
+      refreshToken: result.refreshToken
+    }
+  });
+});
+
+/**
+ * Resend verification email
+ * POST /api/auth/resend-verification
+ */
+const resendVerification = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  
+  const result = await authService.resendVerification(email);
+  
+  res.status(200).json({
+    success: true,
+    message: result.message
+  });
+});
+
 module.exports = {
   register,
   login,
   refreshToken,
   logout,
-  getMe
+  getMe,
+  signup,
+  verifyEmail,
+  resendVerification
 };

@@ -9,7 +9,13 @@ const router = express.Router();
 const authController = require('./auth.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
 const { requireAdmin } = require('../../middleware/roleAuth.middleware');
-const { validateRegistration, validateLogin } = require('../../middleware/validation.middleware');
+const { 
+  validateRegistration, 
+  validateLogin,
+  validateSignup,
+  validateVerificationToken,
+  validateResendVerification
+} = require('../../middleware/validation.middleware');
 const { authRateLimiter } = require('../../middleware/rateLimiter.middleware');
 
 /**
@@ -68,6 +74,42 @@ router.get(
   '/me',
   authenticate,
   authController.getMe
+);
+
+/**
+ * @route   POST /api/auth/signup
+ * @desc    Self-registration for new users
+ * @access  Public
+ */
+router.post(
+  '/signup',
+  authRateLimiter,
+  validateSignup,
+  authController.signup
+);
+
+/**
+ * @route   POST /api/auth/verify-email
+ * @desc    Verify email with token
+ * @access  Public
+ */
+router.post(
+  '/verify-email',
+  authRateLimiter,
+  validateVerificationToken,
+  authController.verifyEmail
+);
+
+/**
+ * @route   POST /api/auth/resend-verification
+ * @desc    Resend verification email
+ * @access  Public
+ */
+router.post(
+  '/resend-verification',
+  authRateLimiter,
+  validateResendVerification,
+  authController.resendVerification
 );
 
 module.exports = router;

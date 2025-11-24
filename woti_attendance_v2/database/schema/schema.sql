@@ -66,6 +66,9 @@ CREATE TABLE users (
     supervisor_id UUID REFERENCES users(id) ON DELETE SET NULL,
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     last_login_at TIMESTAMP WITH TIME ZONE,
+    email_verified BOOLEAN DEFAULT FALSE NOT NULL,
+    verification_token VARCHAR(255),
+    verification_token_expires TIMESTAMP WITH TIME ZONE,
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL

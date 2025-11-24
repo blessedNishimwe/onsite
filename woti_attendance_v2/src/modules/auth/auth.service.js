@@ -108,12 +108,12 @@ const register = async (userData, adminUser) => {
     // Hash password
     const passwordHash = await hashPassword(userData.password);
     
-    // Insert user
+    // Insert user (admin-created users are automatically verified and active)
     const result = await client.query(
       `INSERT INTO users (
         email, phone, password_hash, first_name, last_name, role, 
-        facility_id, supervisor_id, metadata
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        facility_id, supervisor_id, is_active, email_verified, metadata
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING id, email, phone, first_name, last_name, role, facility_id, supervisor_id, created_at`,
       [
         userData.email,
@@ -124,6 +124,8 @@ const register = async (userData, adminUser) => {
         userData.role,
         userData.facility_id || null,
         userData.supervisor_id || null,
+        true, // is_active = TRUE (admin created)
+        true, // email_verified = TRUE (admin created)
         JSON.stringify({ created_by: adminUser.id })
       ]
     );
@@ -190,6 +192,7 @@ const login = async (email, password, ipAddress, userAgent) => {
         u.facility_id,
         u.supervisor_id,
         u.is_active,
+        u.email_verified,
         f.name as facility_name,
         f.code as facility_code,
         c.name as council_name,
@@ -212,7 +215,12 @@ const login = async (email, password, ipAddress, userAgent) => {
     
     // Check if user is active
     if (!user.is_active) {
-      throw new Error('Account is inactive');
+      throw new Error('Account is inactive. Please verify your email or contact support.');
+    }
+    
+    // Check if email is verified (only for non-admin created users)
+    if (!user.email_verified) {
+      throw new Error('Email not verified. Please check your email for verification code.');
     }
     
     // Verify password
@@ -315,10 +323,331 @@ const refresh = async (refreshToken) => {
   }
 };
 
+/**
+ * Self-registration (signup) for new users
+ * @param {Object} userData - User registration data
+ * @param {string} ipAddress - Request IP address
+ * @param {string} userAgent - Request user agent
+ * @returns {Promise<Object>} Created user (without tokens, account not active yet)
+ */
+const signup = async (userData, ipAddress, userAgent) => {
+  const client = await getClient();
+  const { generateVerificationCode, getTokenExpiration } = require('../../utils/tokenGenerator');
+  const { sendVerificationEmail } = require('../email/email.service');
+  
+  try {
+    await client.query('BEGIN');
+    
+    // Check if email already exists
+    const existingUser = await client.query(
+      'SELECT id FROM users WHERE email = $1',
+      [userData.email]
+    );
+    
+    if (existingUser.rows.length > 0) {
+      throw new Error('Email already registered');
+    }
+    
+    // Check if phone already exists
+    const existingPhone = await client.query(
+      'SELECT id FROM users WHERE phone = $1',
+      [userData.phone]
+    );
+    
+    if (existingPhone.rows.length > 0) {
+      throw new Error('Phone number already registered');
+    }
+    
+    // Validate facility exists if provided
+    if (userData.facility_id) {
+      const facility = await client.query(
+        'SELECT id FROM facilities WHERE id = $1 AND is_active = TRUE',
+        [userData.facility_id]
+      );
+      
+      if (facility.rows.length === 0) {
+        throw new Error('Invalid or inactive facility');
+      }
+    }
+    
+    // Hash password
+    const passwordHash = await hashPassword(userData.password);
+    
+    // Generate verification token (6-digit code)
+    const verificationToken = generateVerificationCode();
+    const verificationTokenExpires = getTokenExpiration();
+    
+    // Insert user with is_active = FALSE and email_verified = FALSE
+    const result = await client.query(
+      `INSERT INTO users (
+        email, phone, password_hash, first_name, last_name, role, 
+        facility_id, is_active, email_verified, verification_token, verification_token_expires
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING id, email, phone, first_name, last_name, role, facility_id, is_active, email_verified, created_at`,
+      [
+        userData.email,
+        userData.phone,
+        passwordHash,
+        userData.first_name,
+        userData.last_name,
+        userData.role,
+        userData.facility_id || null,
+        false, // is_active = FALSE until email verified
+        false, // email_verified = FALSE
+        verificationToken,
+        verificationTokenExpires
+      ]
+    );
+    
+    const newUser = result.rows[0];
+    
+    // Log signup activity
+    await client.query(
+      `INSERT INTO activities (user_id, action, entity_type, entity_id, description, ip_address, user_agent, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        newUser.id,
+        'signup',
+        'user',
+        newUser.id,
+        `User ${newUser.email} signed up (email verification pending)`,
+        ipAddress,
+        userAgent,
+        JSON.stringify({ role: newUser.role })
+      ]
+    );
+    
+    await client.query('COMMIT');
+    
+    // Send verification email (don't fail signup if email fails)
+    try {
+      await sendVerificationEmail(
+        newUser.email,
+        newUser.first_name,
+        verificationToken
+      );
+    } catch (emailError) {
+      logger.error('Failed to send verification email during signup', {
+        userId: newUser.id,
+        email: newUser.email,
+        error: emailError.message
+      });
+      // Continue - user can request resend later
+    }
+    
+    logger.info('User signed up successfully', {
+      userId: newUser.id,
+      email: newUser.email,
+      role: newUser.role
+    });
+    
+    return {
+      user: newUser,
+      message: 'Registration successful. Please check your email for verification code.'
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('User signup failed:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Verify user email with token
+ * @param {string} token - Verification token
+ * @returns {Promise<Object>} Verification result with tokens
+ */
+const verifyEmail = async (token) => {
+  const client = await getClient();
+  const { sendVerificationSuccessEmail } = require('../email/email.service');
+  
+  try {
+    await client.query('BEGIN');
+    
+    // Find user with matching token
+    const result = await client.query(
+      `SELECT id, email, first_name, last_name, role, facility_id, verification_token_expires
+       FROM users 
+       WHERE verification_token = $1 AND email_verified = FALSE`,
+      [token]
+    );
+    
+    if (result.rows.length === 0) {
+      throw new Error('Invalid or expired verification token');
+    }
+    
+    const user = result.rows[0];
+    
+    // Check if token is expired
+    const now = new Date();
+    if (now > new Date(user.verification_token_expires)) {
+      throw new Error('Verification token has expired. Please request a new one.');
+    }
+    
+    // Update user: set email_verified = TRUE, is_active = TRUE, clear token
+    await client.query(
+      `UPDATE users 
+       SET email_verified = TRUE, 
+           is_active = TRUE, 
+           verification_token = NULL, 
+           verification_token_expires = NULL
+       WHERE id = $1`,
+      [user.id]
+    );
+    
+    // Log verification success
+    await client.query(
+      `INSERT INTO activities (user_id, action, entity_type, entity_id, description, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        user.id,
+        'email_verified',
+        'user',
+        user.id,
+        `User ${user.email} verified email successfully`,
+        JSON.stringify({ verification_method: 'email_token' })
+      ]
+    );
+    
+    await client.query('COMMIT');
+    
+    // Send success confirmation email (don't fail if this fails)
+    try {
+      await sendVerificationSuccessEmail(user.email, user.first_name);
+    } catch (emailError) {
+      logger.error('Failed to send verification success email', {
+        userId: user.id,
+        error: emailError.message
+      });
+    }
+    
+    logger.info('Email verified successfully', {
+      userId: user.id,
+      email: user.email
+    });
+    
+    // Generate tokens for immediate login
+    const userForToken = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      facility_id: user.facility_id
+    };
+    
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        role: user.role,
+        facility_id: user.facility_id
+      },
+      token: generateAccessToken(userForToken),
+      refreshToken: generateRefreshToken(userForToken)
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Email verification failed:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Resend verification email
+ * @param {string} email - User email
+ * @returns {Promise<Object>} Resend result
+ */
+const resendVerification = async (email) => {
+  const client = await getClient();
+  const { generateVerificationCode, getTokenExpiration } = require('../../utils/tokenGenerator');
+  const { sendVerificationEmail } = require('../email/email.service');
+  
+  try {
+    await client.query('BEGIN');
+    
+    // Find user by email
+    const result = await client.query(
+      `SELECT id, email, first_name, email_verified, is_active 
+       FROM users 
+       WHERE email = $1`,
+      [email]
+    );
+    
+    if (result.rows.length === 0) {
+      throw new Error('User not found');
+    }
+    
+    const user = result.rows[0];
+    
+    // Check if already verified
+    if (user.email_verified) {
+      throw new Error('Email already verified');
+    }
+    
+    // Generate new verification token
+    const verificationToken = generateVerificationCode();
+    const verificationTokenExpires = getTokenExpiration();
+    
+    // Update user with new token
+    await client.query(
+      `UPDATE users 
+       SET verification_token = $1, verification_token_expires = $2
+       WHERE id = $3`,
+      [verificationToken, verificationTokenExpires, user.id]
+    );
+    
+    // Log resend activity
+    await client.query(
+      `INSERT INTO activities (user_id, action, entity_type, entity_id, description)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        user.id,
+        'resend_verification',
+        'user',
+        user.id,
+        `Verification email resent to ${user.email}`
+      ]
+    );
+    
+    await client.query('COMMIT');
+    
+    // Send verification email
+    await sendVerificationEmail(
+      user.email,
+      user.first_name,
+      verificationToken
+    );
+    
+    logger.info('Verification email resent', {
+      userId: user.id,
+      email: user.email
+    });
+    
+    return {
+      success: true,
+      message: 'Verification email sent successfully'
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Failed to resend verification email:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   register,
   login,
   refresh,
+  signup,
+  verifyEmail,
+  resendVerification,
   generateAccessToken,
   generateRefreshToken
 };
