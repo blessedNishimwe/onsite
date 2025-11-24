@@ -11,7 +11,9 @@ const {
   isValidUUID,
   isValidCoordinates,
   isValidRole,
-  sanitizeString
+  isValidSelfRegistrationRole,
+  sanitizeString,
+  SELF_REGISTRATION_ALLOWED_ROLES
 } = require('../utils/validators');
 const logger = require('../utils/logger');
 
@@ -284,12 +286,8 @@ const validateSignup = (req, res, next) => {
   if (!last_name) errors.push('Last name is required');
   
   if (!role) errors.push('Role is required');
-  else {
-    // Restrict roles for self-registration (no admin or supervisor roles)
-    const allowedRoles = ['tester', 'data_clerk', 'focal'];
-    if (!allowedRoles.includes(role)) {
-      errors.push('Invalid role. Allowed roles for self-registration: tester, data_clerk, focal');
-    }
+  else if (!isValidSelfRegistrationRole(role)) {
+    errors.push(`Invalid role. Allowed roles for self-registration: ${SELF_REGISTRATION_ALLOWED_ROLES.join(', ')}`);
   }
   
   // Optional facility_id validation

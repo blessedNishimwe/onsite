@@ -17,51 +17,51 @@ const createTransporter = () => {
   let transportConfig = {};
   
   switch (emailService.toLowerCase()) {
-    case 'gmail':
-      transportConfig = {
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD
-        }
-      };
-      break;
+  case 'gmail':
+    transportConfig = {
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    };
+    break;
       
-    case 'sendgrid':
-      transportConfig = {
-        host: 'smtp.sendgrid.net',
-        port: 587,
-        secure: false,
-        auth: {
-          user: 'apikey',
-          pass: process.env.SENDGRID_API_KEY
-        }
-      };
-      break;
+  case 'sendgrid':
+    transportConfig = {
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      secure: false,
+      auth: {
+        user: 'apikey',
+        pass: process.env.SENDGRID_API_KEY
+      }
+    };
+    break;
       
-    case 'ses':
-      transportConfig = {
-        host: process.env.EMAIL_HOST || 'email-smtp.us-east-1.amazonaws.com',
-        port: parseInt(process.env.EMAIL_PORT) || 587,
-        secure: false,
-        auth: {
-          user: process.env.AWS_SES_USERNAME,
-          pass: process.env.AWS_SES_PASSWORD
-        }
-      };
-      break;
+  case 'ses':
+    transportConfig = {
+      host: process.env.EMAIL_HOST || 'email-smtp.us-east-1.amazonaws.com',
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.AWS_SES_USERNAME,
+        pass: process.env.AWS_SES_PASSWORD
+      }
+    };
+    break;
       
-    default:
-      // Custom SMTP configuration
-      transportConfig = {
-        host: process.env.EMAIL_HOST,
-        port: parseInt(process.env.EMAIL_PORT) || 587,
-        secure: process.env.EMAIL_SECURE === 'true',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD
-        }
-      };
+  default:
+    // Custom SMTP configuration
+    transportConfig = {
+      host: process.env.EMAIL_HOST,
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: process.env.EMAIL_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    };
   }
   
   return nodemailer.createTransport(transportConfig);

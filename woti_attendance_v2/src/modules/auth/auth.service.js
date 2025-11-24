@@ -345,7 +345,8 @@ const signup = async (userData, ipAddress, userAgent) => {
     );
     
     if (existingUser.rows.length > 0) {
-      throw new Error('Email already registered');
+      // Use generic message to prevent email enumeration
+      throw new Error('Registration failed. Please check your information and try again.');
     }
     
     // Check if phone already exists
@@ -355,7 +356,8 @@ const signup = async (userData, ipAddress, userAgent) => {
     );
     
     if (existingPhone.rows.length > 0) {
-      throw new Error('Phone number already registered');
+      // Use generic message to prevent phone enumeration
+      throw new Error('Registration failed. Please check your information and try again.');
     }
     
     // Validate facility exists if provided
