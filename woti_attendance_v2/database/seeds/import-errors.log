@@ -1,0 +1,7 @@
+[
+  {
+    "line": 89,
+    "facility": "MSINDO Health Center",
+    "error": "null value in column \"is_active\" of relation \"facilities\" violates not-null constraint"
+  }
+]

@@ -121,6 +121,25 @@ app.get('/api', (req, res) => {
   });
 });
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    name: 'WOTI Attendance API v2',
+    version: '1.0.0',
+    status: 'running',
+    environment: process.env.NODE_ENV || 'development',
+    endpoints: {
+      health: '/health',
+      api: '/api',
+      auth: '/api/auth',
+      users: '/api/users',
+      facilities: '/api/facilities',
+      attendance: '/api/attendance'
+    },
+    documentation: '/api/docs'
+  });
+});
+
 // Mount route modules
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
