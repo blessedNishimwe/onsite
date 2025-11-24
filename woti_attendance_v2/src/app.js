@@ -76,6 +76,19 @@ requiredDirs.forEach(dir => {
 });
 
 // ============================================================================
+// STATIC FILE SERVING
+// ============================================================================
+
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Serve frontend for root path
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+
+// ============================================================================
 // HEALTH CHECK ENDPOINT
 // ============================================================================
 
@@ -105,7 +118,7 @@ app.get('/health', async (req, res) => {
 // ============================================================================
 
 // Root API endpoint
-app.get('/api', (req, res) => {
+/*app.get('/api', (req, res) => {
   res.json({
     name: 'WOTI Attendance API v2',
     version: '1.0.0',
@@ -119,10 +132,10 @@ app.get('/api', (req, res) => {
     },
     documentation: '/api/docs'
   });
-});
+});*/
 
 // Root endpoint
-app.get('/', (req, res) => {
+/*app.get('/', (req, res) => {
   res.json({
     name: 'WOTI Attendance API v2',
     version: '1.0.0',
@@ -138,7 +151,7 @@ app.get('/', (req, res) => {
     },
     documentation: '/api/docs'
   });
-});
+});*/
 
 // Mount route modules
 app.use('/api/auth', authRoutes);
