@@ -51,40 +51,40 @@ const resolveConflict = (clientRecord, serverRecord, strategy) => {
   
   // Apply resolution strategy
   switch (strategy) {
-    case STRATEGIES.CLIENT_WINS:
-      return {
-        resolved: mergeRecords(clientRecord, serverRecord, 'client'),
-        action: 'update',
-        conflict: true,
-        resolution: 'client_wins'
-      };
+  case STRATEGIES.CLIENT_WINS:
+    return {
+      resolved: mergeRecords(clientRecord, serverRecord, 'client'),
+      action: 'update',
+      conflict: true,
+      resolution: 'client_wins'
+    };
       
-    case STRATEGIES.SERVER_WINS:
-      return {
-        resolved: serverRecord,
-        action: 'no_change',
-        conflict: true,
-        resolution: 'server_wins'
-      };
+  case STRATEGIES.SERVER_WINS:
+    return {
+      resolved: serverRecord,
+      action: 'no_change',
+      conflict: true,
+      resolution: 'server_wins'
+    };
       
-    case STRATEGIES.MANUAL:
-      return {
-        resolved: null,
-        action: 'manual_review',
-        conflict: true,
-        resolution: 'manual',
-        clientRecord,
-        serverRecord
-      };
+  case STRATEGIES.MANUAL:
+    return {
+      resolved: null,
+      action: 'manual_review',
+      conflict: true,
+      resolution: 'manual',
+      clientRecord,
+      serverRecord
+    };
       
-    default:
-      // Default to server wins
-      return {
-        resolved: serverRecord,
-        action: 'no_change',
-        conflict: true,
-        resolution: 'server_wins_default'
-      };
+  default:
+    // Default to server wins
+    return {
+      resolved: serverRecord,
+      action: 'no_change',
+      conflict: true,
+      resolution: 'server_wins_default'
+    };
   }
 };
 

@@ -147,7 +147,7 @@ const createRateLimiter = (options = {}) => {
       
       return res.status(429).json({
         error: 'Too Many Requests',
-        message: `Too many requests, please try again later`,
+        message: 'Too many requests, please try again later',
         code: 'RATE_LIMIT_EXCEEDED',
         retryAfter: Math.ceil(blockDuration / 1000)
       });

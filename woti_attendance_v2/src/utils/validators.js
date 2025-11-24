@@ -86,14 +86,26 @@ const isValidCoordinates = (lat, lon) => {
   );
 };
 
+// Role constants
+const ALL_ROLES = ['tester', 'data_clerk', 'focal', 'ddo', 'supervisor', 'backstopper', 'admin'];
+const SELF_REGISTRATION_ALLOWED_ROLES = ['tester', 'data_clerk', 'focal'];
+
 /**
  * Validate user role
  * @param {string} role - Role to validate
  * @returns {boolean} Whether role is valid
  */
 const isValidRole = (role) => {
-  const validRoles = ['tester', 'data_clerk', 'focal', 'ddo', 'supervisor', 'backstopper', 'admin'];
-  return validRoles.includes(role);
+  return ALL_ROLES.includes(role);
+};
+
+/**
+ * Validate role for self-registration
+ * @param {string} role - Role to validate
+ * @returns {boolean} Whether role is allowed for self-registration
+ */
+const isValidSelfRegistrationRole = (role) => {
+  return SELF_REGISTRATION_ALLOWED_ROLES.includes(role);
 };
 
 /**
@@ -190,9 +202,12 @@ module.exports = {
   isValidUUID,
   isValidCoordinates,
   isValidRole,
+  isValidSelfRegistrationRole,
   isValidFacilityType,
   sanitizeString,
   isValidDate,
   validatePagination,
-  validateUploadedFile
+  validateUploadedFile,
+  ALL_ROLES,
+  SELF_REGISTRATION_ALLOWED_ROLES
 };
