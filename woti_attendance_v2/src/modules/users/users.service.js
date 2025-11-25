@@ -133,10 +133,103 @@ const getUserStatistics = async () => {
   return await usersRepository.getStatistics();
 };
 
+/**
+ * Get pending users (awaiting admin approval)
+ * @param {Object} filters - Filter options
+ * @returns {Promise<Object>} Pending users with pagination
+ */
+const getPendingUsers = async (filters) => {
+  return await usersRepository.findPending(filters);
+};
+
+/**
+ * Approve user (set is_active = true)
+ * @param {string} userId - User ID to approve
+ * @param {Object} adminUser - Admin user performing the approval
+ * @returns {Promise<Object>} Approved user
+ */
+const approveUser = async (userId, adminUser) => {
+  const existingUser = await usersRepository.findById(userId);
+  
+  if (!existingUser) {
+    throw new Error('User not found');
+  }
+  
+  if (existingUser.is_active) {
+    throw new Error('User is already active');
+  }
+  
+  const approvedUser = await usersRepository.approve(userId);
+  
+  // Log activity
+  await query(
+    `INSERT INTO activities (user_id, action, entity_type, entity_id, description, metadata)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [
+      adminUser.id,
+      'approve',
+      'user',
+      userId,
+      `User ${existingUser.email} approved by admin`,
+      JSON.stringify({ approved_by: adminUser.email })
+    ]
+  );
+  
+  logger.info('User approved', { userId, approvedBy: adminUser.id });
+  
+  delete approvedUser.password_hash;
+  return approvedUser;
+};
+
+/**
+ * Reject user (delete or keep as inactive)
+ * @param {string} userId - User ID to reject
+ * @param {Object} adminUser - Admin user performing the rejection
+ * @param {boolean} deleteUser - Whether to delete the user (default: false, keeps as inactive)
+ * @returns {Promise<boolean>} Success status
+ */
+const rejectUser = async (userId, adminUser, deleteUser = false) => {
+  const existingUser = await usersRepository.findById(userId);
+  
+  if (!existingUser) {
+    throw new Error('User not found');
+  }
+  
+  if (existingUser.is_active) {
+    throw new Error('Cannot reject an already active user');
+  }
+  
+  // Log activity
+  await query(
+    `INSERT INTO activities (user_id, action, entity_type, entity_id, description, metadata)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [
+      adminUser.id,
+      'reject',
+      'user',
+      userId,
+      `User ${existingUser.email} rejected by admin`,
+      JSON.stringify({ rejected_by: adminUser.email, deleted: deleteUser })
+    ]
+  );
+  
+  if (deleteUser) {
+    // Hard delete the user
+    await query('DELETE FROM users WHERE id = $1', [userId]);
+  }
+  
+  logger.info('User rejected', { userId, rejectedBy: adminUser.id, deleted: deleteUser });
+  
+  return true;
+};
+
 module.exports = {
   getUserById,
   getAllUsers,
   updateUser,
   deleteUser,
-  getUserStatistics
+  getUserStatistics,
+  getPendingUsers,
+  approveUser,
+  rejectUser
 };

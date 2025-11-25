@@ -320,12 +320,99 @@ const getStatistics = async () => {
   return result.rows[0];
 };
 
+/**
+ * Find all pending users (is_active = false)
+ * @param {Object} filters - Filter options
+ * @returns {Promise<Object>} List of pending users with pagination
+ */
+const findPending = async (filters = {}) => {
+  const {
+    page = 1,
+    limit = 10,
+    sortBy = 'created_at',
+    sortOrder = 'DESC'
+  } = filters;
+  
+  const offset = (page - 1) * limit;
+  
+  // Validate sort column to prevent SQL injection
+  const allowedSortColumns = ['created_at', 'updated_at', 'first_name', 'last_name', 'email', 'role'];
+  const validSortBy = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
+  const validSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+  
+  // Get total count of pending users
+  const countResult = await query(
+    'SELECT COUNT(*) FROM users WHERE is_active = FALSE'
+  );
+  const total = parseInt(countResult.rows[0].count);
+  
+  // Get pending users
+  const usersQuery = `
+    SELECT 
+      u.id,
+      u.email,
+      u.phone,
+      u.first_name,
+      u.last_name,
+      u.role,
+      u.facility_id,
+      u.is_active,
+      u.created_at,
+      f.name as facility_name,
+      f.code as facility_code,
+      c.name as council_name,
+      r.name as region_name
+    FROM users u
+    LEFT JOIN facilities f ON u.facility_id = f.id
+    LEFT JOIN councils c ON f.council_id = c.id
+    LEFT JOIN regions r ON c.region_id = r.id
+    WHERE u.is_active = FALSE
+    ORDER BY u.${validSortBy} ${validSortOrder}
+    LIMIT $1 OFFSET $2
+  `;
+  
+  const result = await query(usersQuery, [limit, offset]);
+  
+  return {
+    users: result.rows,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
+};
+
+/**
+ * Approve user (set is_active = true)
+ * @param {string} userId - User ID
+ * @returns {Promise<Object>} Updated user
+ */
+const approve = async (userId) => {
+  const result = await query(
+    `UPDATE users 
+     SET is_active = TRUE 
+     WHERE id = $1 
+     RETURNING *`,
+    [userId]
+  );
+  
+  if (result.rows.length === 0) {
+    throw new Error('User not found');
+  }
+  
+  return result.rows[0];
+};
+
 module.exports = {
   findById,
   findByEmail,
   findAll,
+  findPending,
   create,
   update,
   remove,
+  approve,
   getStatistics
 };

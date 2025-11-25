@@ -9,7 +9,7 @@ const router = express.Router();
 const attendanceController = require('./attendance.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
 const { requireAdmin } = require('../../middleware/roleAuth.middleware');
-const { validateAttendance, validateQueryParams } = require('../../middleware/validation.middleware');
+const { validateAttendance, validateClockOut, validateQueryParams } = require('../../middleware/validation.middleware');
 const { apiRateLimiter } = require('../../middleware/rateLimiter.middleware');
 
 /**
@@ -34,6 +34,7 @@ router.post(
   '/clock-out',
   authenticate,
   apiRateLimiter,
+  validateClockOut,
   attendanceController.clockOut
 );
 

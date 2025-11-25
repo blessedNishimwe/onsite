@@ -2,6 +2,7 @@
 /**
  * Authentication Routes
  * Defines routes for authentication endpoints
+ * Uses admin approval workflow (no email verification)
  */
 
 const express = require('express');
@@ -12,9 +13,7 @@ const { requireAdmin } = require('../../middleware/roleAuth.middleware');
 const { 
   validateRegistration, 
   validateLogin,
-  validateSignup,
-  validateVerificationToken,
-  validateResendVerification
+  validateSignup
 } = require('../../middleware/validation.middleware');
 const { authRateLimiter } = require('../../middleware/rateLimiter.middleware');
 
@@ -78,7 +77,7 @@ router.get(
 
 /**
  * @route   POST /api/auth/signup
- * @desc    Self-registration for new users
+ * @desc    Self-registration for new users (pending admin approval)
  * @access  Public
  */
 router.post(
@@ -86,30 +85,6 @@ router.post(
   authRateLimiter,
   validateSignup,
   authController.signup
-);
-
-/**
- * @route   POST /api/auth/verify-email
- * @desc    Verify email with token
- * @access  Public
- */
-router.post(
-  '/verify-email',
-  authRateLimiter,
-  validateVerificationToken,
-  authController.verifyEmail
-);
-
-/**
- * @route   POST /api/auth/resend-verification
- * @desc    Resend verification email
- * @access  Public
- */
-router.post(
-  '/resend-verification',
-  authRateLimiter,
-  validateResendVerification,
-  authController.resendVerification
 );
 
 module.exports = router;

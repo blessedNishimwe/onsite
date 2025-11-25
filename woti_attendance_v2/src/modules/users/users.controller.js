@@ -109,11 +109,71 @@ const getUserStatistics = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Get pending users (awaiting admin approval)
+ * GET /api/users/pending
+ */
+const getPendingUsers = asyncHandler(async (req, res) => {
+  const { page, limit } = validatePagination(req.query.page, req.query.limit);
+  
+  const filters = {
+    page,
+    limit,
+    sortBy: req.query.sort || 'created_at',
+    sortOrder: req.query.order || 'DESC'
+  };
+  
+  const result = await usersService.getPendingUsers(filters);
+  
+  res.status(200).json({
+    success: true,
+    data: {
+      users: result.users,
+      pagination: result.pagination
+    }
+  });
+});
+
+/**
+ * Approve user
+ * PUT /api/users/:id/approve
+ */
+const approveUser = asyncHandler(async (req, res) => {
+  const userId = req.params.id;
+  
+  const user = await usersService.approveUser(userId, req.user);
+  
+  res.status(200).json({
+    success: true,
+    message: 'User approved successfully',
+    data: { user }
+  });
+});
+
+/**
+ * Reject user
+ * PUT /api/users/:id/reject
+ */
+const rejectUser = asyncHandler(async (req, res) => {
+  const userId = req.params.id;
+  const { deleteUser } = req.body;
+  
+  await usersService.rejectUser(userId, req.user, deleteUser === true);
+  
+  res.status(200).json({
+    success: true,
+    message: deleteUser ? 'User rejected and deleted' : 'User rejected'
+  });
+});
+
 module.exports = {
   getMe,
   getUserById,
   getAllUsers,
   updateUser,
   deleteUser,
-  getUserStatistics
+  getUserStatistics,
+  getPendingUsers,
+  approveUser,
+  rejectUser
 };
