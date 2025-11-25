@@ -335,10 +335,19 @@ const findPending = async (filters = {}) => {
   
   const offset = (page - 1) * limit;
   
-  // Validate sort column to prevent SQL injection
-  const allowedSortColumns = ['created_at', 'updated_at', 'first_name', 'last_name', 'email', 'role'];
-  const validSortBy = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
-  const validSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+  // Map of allowed sort columns to their SQL equivalents for safety
+  const sortColumnMap = {
+    'created_at': 'u.created_at',
+    'updated_at': 'u.updated_at',
+    'first_name': 'u.first_name',
+    'last_name': 'u.last_name',
+    'email': 'u.email',
+    'role': 'u.role'
+  };
+  
+  // Get safe sort column from map (prevents SQL injection)
+  const safeSortColumn = sortColumnMap[sortBy] || 'u.created_at';
+  const safeSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   
   // Get total count of pending users
   const countResult = await query(
@@ -346,30 +355,58 @@ const findPending = async (filters = {}) => {
   );
   const total = parseInt(countResult.rows[0].count);
   
-  // Get pending users
-  const usersQuery = `
-    SELECT 
-      u.id,
-      u.email,
-      u.phone,
-      u.first_name,
-      u.last_name,
-      u.role,
-      u.facility_id,
-      u.is_active,
-      u.created_at,
-      f.name as facility_name,
-      f.code as facility_code,
-      c.name as council_name,
-      r.name as region_name
-    FROM users u
-    LEFT JOIN facilities f ON u.facility_id = f.id
-    LEFT JOIN councils c ON f.council_id = c.id
-    LEFT JOIN regions r ON c.region_id = r.id
-    WHERE u.is_active = FALSE
-    ORDER BY u.${validSortBy} ${validSortOrder}
-    LIMIT $1 OFFSET $2
-  `;
+  // Build query with safe ORDER BY clause
+  // Using explicit mapping ensures only predefined values are used
+  let usersQuery;
+  if (safeSortOrder === 'ASC') {
+    usersQuery = `
+      SELECT 
+        u.id,
+        u.email,
+        u.phone,
+        u.first_name,
+        u.last_name,
+        u.role,
+        u.facility_id,
+        u.is_active,
+        u.created_at,
+        f.name as facility_name,
+        f.code as facility_code,
+        c.name as council_name,
+        r.name as region_name
+      FROM users u
+      LEFT JOIN facilities f ON u.facility_id = f.id
+      LEFT JOIN councils c ON f.council_id = c.id
+      LEFT JOIN regions r ON c.region_id = r.id
+      WHERE u.is_active = FALSE
+      ORDER BY ${safeSortColumn} ASC
+      LIMIT $1 OFFSET $2
+    `;
+  } else {
+    usersQuery = `
+      SELECT 
+        u.id,
+        u.email,
+        u.phone,
+        u.first_name,
+        u.last_name,
+        u.role,
+        u.facility_id,
+        u.is_active,
+        u.created_at,
+        f.name as facility_name,
+        f.code as facility_code,
+        c.name as council_name,
+        r.name as region_name
+      FROM users u
+      LEFT JOIN facilities f ON u.facility_id = f.id
+      LEFT JOIN councils c ON f.council_id = c.id
+      LEFT JOIN regions r ON c.region_id = r.id
+      WHERE u.is_active = FALSE
+      ORDER BY ${safeSortColumn} DESC
+      LIMIT $1 OFFSET $2
+    `;
+  }
   
   const result = await query(usersQuery, [limit, offset]);
   

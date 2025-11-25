@@ -214,8 +214,8 @@ const rejectUser = async (userId, adminUser, deleteUser = false) => {
   );
   
   if (deleteUser) {
-    // Hard delete the user
-    await query('DELETE FROM users WHERE id = $1', [userId]);
+    // Soft delete the user by marking them as deleted
+    await usersRepository.remove(userId);
   }
   
   logger.info('User rejected', { userId, rejectedBy: adminUser.id, deleted: deleteUser });

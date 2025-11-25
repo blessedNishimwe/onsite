@@ -10,6 +10,7 @@ const usersController = require('./users.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
 const { requireAdmin, requireOwnerOrAdmin } = require('../../middleware/roleAuth.middleware');
 const { validateUserUpdate, validateUUIDParam, validateQueryParams } = require('../../middleware/validation.middleware');
+const { apiRateLimiter } = require('../../middleware/rateLimiter.middleware');
 
 /**
  * @route   GET /api/users/me
@@ -30,7 +31,7 @@ router.get('/stats', authenticate, requireAdmin, usersController.getUserStatisti
  * @desc    Get pending users awaiting approval
  * @access  Private/Admin
  */
-router.get('/pending', authenticate, requireAdmin, validateQueryParams, usersController.getPendingUsers);
+router.get('/pending', apiRateLimiter, authenticate, requireAdmin, validateQueryParams, usersController.getPendingUsers);
 
 /**
  * @route   GET /api/users
@@ -51,14 +52,14 @@ router.get('/:id', authenticate, validateUUIDParam('id'), requireOwnerOrAdmin('i
  * @desc    Approve pending user
  * @access  Private/Admin
  */
-router.put('/:id/approve', authenticate, requireAdmin, validateUUIDParam('id'), usersController.approveUser);
+router.put('/:id/approve', apiRateLimiter, authenticate, requireAdmin, validateUUIDParam('id'), usersController.approveUser);
 
 /**
  * @route   PUT /api/users/:id/reject
  * @desc    Reject pending user
  * @access  Private/Admin
  */
-router.put('/:id/reject', authenticate, requireAdmin, validateUUIDParam('id'), usersController.rejectUser);
+router.put('/:id/reject', apiRateLimiter, authenticate, requireAdmin, validateUUIDParam('id'), usersController.rejectUser);
 
 /**
  * @route   PUT /api/users/:id
