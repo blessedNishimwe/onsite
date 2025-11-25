@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WOTI Attendance - Register</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 500px;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+        .logo p {
+            color: #666;
+            font-size: 14px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        label .required {
+            color: #e74c3c;
+        }
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        input.error {
+            border-color: #e74c3c;
+        }
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .alert {
+            padding: 12px 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+        .alert-success {
+            background: #efe;
+            color: #3c3;
+            border: 1px solid #cfc;
+        }
+        .password-strength {
+            font-size: 12px;
+            margin-top: 5px;
+            color: #666;
+        }
+        .link {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        .link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>🏥 WOTI</h1>
+            <p>Create Your Account</p>
+        </div>
+
+        <div id="alert" style="display: none;"></div>
+
+        <form id="registerForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="first_name">First Name <span class="required">*</span></label>
+                    <input type="text" id="first_name" name="first_name" required autocomplete="given-name">
+                </div>
+
+                <div class="form-group">
+                    <label for="last_name">Last Name <span class="required">*</span></label>
+                    <input type="text" id="last_name" name="last_name" required autocomplete="family-name">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address <span class="required">*</span></label>
+                <input type="email" id="email" name="email" required autocomplete="email" placeholder="your.email@example.com">
+            </div>
+
+            <div class="form-group">
+                <label for="phone_number">Phone Number</label>
+                <input type="tel" id="phone_number" name="phone_number" autocomplete="tel" placeholder="+255123456789 (optional)">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password <span class="required">*</span></label>
+                <input type="password" id="password" name="password" required autocomplete="new-password">
+                <div class="password-strength">
+                    Must be 8+ characters with uppercase, lowercase, number, and special character (@$!%*?&#)
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password <span class="required">*</span></label>
+                <input type="password" id="confirm_password" name="confirm_password" required autocomplete="new-password">
+            </div>
+
+            <button type="submit" class="btn" id="registerBtn">Create Account</button>
+        </form>
+
+        <div class="link">
+            Already have an account? <a href="/">Sign In</a>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('registerForm');
+        const alertDiv = document.getElementById('alert');
+        const btn = document.getElementById('registerBtn');
+
+        function showAlert(message, type = 'error') {
+            alertDiv.className = `alert alert-${type}`;
+            if (typeof message === 'object' && message.errors) {
+                alertDiv.innerHTML = '<strong>' + message.message + '</strong><ul style="margin-top:8px;padding-left:20px;">' + 
+                    message.errors.map(e => '<li>' + e + '</li>').join('') + '</ul>';
+            } else {
+                alertDiv.textContent = message;
+            }
+            alertDiv.style.display = 'block';
+            window.scrollTo(0, 0);
+        }
+
+        function clearAlert() {
+            alertDiv.style.display = 'none';
+        }
+
+        function validatePassword(password) {
+            const errors = [];
+            if (password.length < 8) errors.push('At least 8 characters');
+            if (!/[a-z]/.test(password)) errors.push('One lowercase letter');
+            if (!/[A-Z]/.test(password)) errors.push('One uppercase letter');
+            if (!/\d/.test(password)) errors.push('One number');
+            if (!/[@$!%*?&#]/.test(password)) errors.push('One special character (@$!%*?&#)');
+            return errors;
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearAlert();
+
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+
+            // Client-side validation
+            const passwordErrors = validatePassword(password);
+            if (passwordErrors.length > 0) {
+                showAlert({
+                    message: 'Password requirements not met:',
+                    errors: passwordErrors
+                });
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showAlert('Passwords do not match');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Creating Account...';
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        first_name: document.getElementById('first_name').value.trim(),
+                        last_name: document.getElementById('last_name').value.trim(),
+                        email: document.getElementById('email').value.trim().toLowerCase(),
+                        phone_number: document.getElementById('phone_number').value.trim() || null,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('✅ ' + data.message + ' Check your email inbox!', 'success');
+                    form.reset();
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 5000);
+                } else {
+                    showAlert(data);
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showAlert('Network error. Please check your connection and try again.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Create Account';
+            }
+        });
+
+        // Real-time password strength indicator
+        document.getElementById('password').addEventListener('input', (e) => {
+            const errors = validatePassword(e.target.value);
+            if (errors.length === 0 && e.target.value.length > 0) {
+                e.target.style.borderColor = '#27ae60';
+            } else if (e.target.value.length > 0) {
+                e.target.style.borderColor = '#e74c3c';
+            } else {
+                e.target.style.borderColor = '#e0e0e0';
+            }
+        });
+    </script>
+</body>
+</html>

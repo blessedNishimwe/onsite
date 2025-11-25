@@ -111,5 +111,20 @@ router.post(
   validateResendVerification,
   authController.resendVerification
 );
+// Refresh token
+router.post('/refresh', authController.refreshToken);
+
+/**
+ * Protected Routes (Authentication required)
+ */
+
+// Register new user (admin only)
+router.post('/register-user', authenticate, authController.register);
+
+// Logout
+router.post('/logout', authenticate, authController.logout);
+
+// Get current user
+router.get('/me', authenticate, authController.getMe);
 
 module.exports = router;
