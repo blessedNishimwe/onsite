@@ -15,7 +15,6 @@ const {
   sanitizeString,
   SELF_REGISTRATION_ALLOWED_ROLES
 } = require('../utils/validators');
-const logger = require('../utils/logger');
 
 /**
  * Validate user registration data
@@ -312,46 +311,27 @@ const validateSignup = (req, res, next) => {
 };
 
 /**
- * Validate email verification token
+ * Validate clock-out data
  */
-const validateVerificationToken = (req, res, next) => {
+const validateClockOut = (req, res, next) => {
   const errors = [];
-  const { token } = req.body;
+  const { clock_out_latitude, clock_out_longitude } = req.body;
   
-  if (!token) {
-    errors.push('Verification token is required');
+  // Validate coordinates if provided
+  if ((clock_out_latitude !== undefined && clock_out_latitude !== null) || 
+      (clock_out_longitude !== undefined && clock_out_longitude !== null)) {
+    if (!isValidCoordinates(parseFloat(clock_out_latitude), parseFloat(clock_out_longitude))) {
+      errors.push('Invalid clock-out coordinates');
+    }
   }
   
   if (errors.length > 0) {
     return res.status(400).json({
       error: 'Validation Error',
-      message: 'Invalid verification data',
+      message: 'Invalid clock-out data',
       errors
     });
   }
-  
-  next();
-};
-
-/**
- * Validate resend verification email request
- */
-const validateResendVerification = (req, res, next) => {
-  const errors = [];
-  const { email } = req.body;
-  
-  if (!email) errors.push('Email is required');
-  else if (!isValidEmail(email)) errors.push('Invalid email format');
-  
-  if (errors.length > 0) {
-    return res.status(400).json({
-      error: 'Validation Error',
-      message: 'Invalid email data',
-      errors
-    });
-  }
-  
-  req.body.email = email.toLowerCase().trim();
   
   next();
 };
@@ -362,9 +342,8 @@ module.exports = {
   validateUserUpdate,
   validateFacility,
   validateAttendance,
+  validateClockOut,
   validateUUIDParam,
   validateQueryParams,
-  validateSignup,
-  validateVerificationToken,
-  validateResendVerification
+  validateSignup
 };

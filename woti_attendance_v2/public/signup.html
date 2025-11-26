@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WOTI Attendance - Login</title>
+    <title>WOTI Attendance - Sign Up</title>
     <style>
         * {
             margin: 0;
@@ -27,7 +27,7 @@
             padding: 40px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             width: 100%;
-            max-width: 400px;
+            max-width: 500px;
         }
 
         .logo {
@@ -50,6 +50,15 @@
             margin-bottom: 20px;
         }
 
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
         label {
             display: block;
             margin-bottom: 8px;
@@ -58,7 +67,7 @@
             font-size: 14px;
         }
 
-        input {
+        input, select {
             width: 100%;
             padding: 12px 15px;
             border: 2px solid #e0e0e0;
@@ -67,7 +76,7 @@
             transition: all 0.3s;
         }
 
-        input:focus {
+        input:focus, select:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -128,18 +137,25 @@
             font-size: 14px;
         }
 
-        .info-box {
-            background: #f8f9ff;
-            border-left: 4px solid #667eea;
-            padding: 15px;
+        .login-link {
+            text-align: center;
             margin-top: 20px;
-            border-radius: 5px;
-            font-size: 13px;
-            color: #666;
         }
 
-        .info-box strong {
+        .login-link a {
             color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+
+        .password-requirements {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
         }
     </style>
 </head>
@@ -147,21 +163,55 @@
     <div class="container">
         <div class="logo">
             <h1>🏥 WOTI</h1>
-            <p>Attendance Management System</p>
+            <p>Create Your Account</p>
         </div>
 
         <div id="alert" style="display: none;"></div>
 
-        <form id="loginForm">
+        <form id="signupForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="first_name">First Name</label>
+                    <input 
+                        type="text" 
+                        id="first_name" 
+                        name="first_name" 
+                        placeholder="John"
+                        required
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="last_name">Last Name</label>
+                    <input 
+                        type="text" 
+                        id="last_name" 
+                        name="last_name" 
+                        placeholder="Doe"
+                        required
+                    >
+                </div>
+            </div>
+
             <div class="form-group">
                 <label for="email">Email Address</label>
                 <input 
                     type="email" 
                     id="email" 
                     name="email" 
-                    placeholder="admin@woti.rw"
+                    placeholder="john.doe@example.com"
                     required
                     autocomplete="email"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input 
+                    type="tel" 
+                    id="phone" 
+                    name="phone" 
+                    placeholder="+250 7XX XXX XXX"
+                    required
                 >
             </div>
 
@@ -171,37 +221,46 @@
                     type="password" 
                     id="password" 
                     name="password" 
-                    placeholder="Enter your password"
+                    placeholder="Create a strong password"
                     required
-                    autocomplete="current-password"
+                    autocomplete="new-password"
                 >
+                <p class="password-requirements">
+                    Password must be at least 8 characters with uppercase, lowercase, number, and special character.
+                </p>
             </div>
 
-            <button type="submit" class="btn" id="loginBtn">
-                Sign In
+            <div class="form-group">
+                <label for="role">Role</label>
+                <select id="role" name="role" required>
+                    <option value="">Select your role</option>
+                    <option value="tester">Tester</option>
+                    <option value="data_clerk">Data Clerk</option>
+                    <option value="focal">Focal Point</option>
+                    <option value="ddo">DDO</option>
+                    <option value="supervisor">Supervisor</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn" id="signupBtn">
+                Create Account
             </button>
 
             <div class="loading" id="loading">
-                Signing in...
+                Creating your account...
             </div>
         </form>
 
-        <!--<div class="info-box">
-            <strong>Default Admin:</strong><br>
-            Email: admin@woti.rw<br>
-            Password: Admin@123
-        </div>-->
-        
-        <div style="text-align: center; margin-top: 20px;">
+        <div class="login-link">
             <p style="color: #666; font-size: 14px;">
-                Don't have an account? <a href="/signup.html" style="color: #667eea; text-decoration: none; font-weight: 600;">Sign up</a>
+                Already have an account? <a href="/index.html">Sign in</a>
             </p>
         </div>
     </div>
 
     <script>
-        const loginForm = document.getElementById('loginForm');
-        const loginBtn = document.getElementById('loginBtn');
+        const signupForm = document.getElementById('signupForm');
+        const signupBtn = document.getElementById('signupBtn');
         const loading = document.getElementById('loading');
         const alertDiv = document.getElementById('alert');
 
@@ -210,58 +269,67 @@
             alertDiv.className = `alert alert-${type}`;
             alertDiv.textContent = message;
             alertDiv.style.display = 'block';
-            setTimeout(() => {
-                alertDiv.style.display = 'none';
-            }, 5000);
+            
+            if (type !== 'success') {
+                setTimeout(() => {
+                    alertDiv.style.display = 'none';
+                }, 5000);
+            }
         }
 
         // Handle form submission
-        loginForm.addEventListener('submit', async (e) => {
+        signupForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+            const formData = {
+                first_name: document.getElementById('first_name').value,
+                last_name: document.getElementById('last_name').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                password: document.getElementById('password').value,
+                role: document.getElementById('role').value
+            };
 
             // Disable button and show loading
-            loginBtn.disabled = true;
+            signupBtn.disabled = true;
             loading.style.display = 'block';
             alertDiv.style.display = 'none';
 
             try {
-                const response = await fetch('/api/auth/login', {
+                const response = await fetch('/api/auth/signup', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ email, password })
+                    body: JSON.stringify(formData)
                 });
 
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Save token (response data is nested in data object)
-                    localStorage.setItem('token', data.data.token);
-                    localStorage.setItem('user', JSON.stringify(data.data.user));
-
-                    showAlert('Login successful! Redirecting...', 'success');
-
-                    // Redirect to dashboard
+                    showAlert(data.message || 'Registration successful! Please wait for admin approval.', 'success');
+                    signupForm.reset();
+                    
+                    // Show success message for longer
                     setTimeout(() => {
-                        window.location.href = '/dashboard.html';
-                    }, 1000);
+                        window.location.href = '/index.html';
+                    }, 5000);
                 } else {
-                    showAlert(data.message || 'Login failed. Please check your credentials.');
+                    const errorMessage = data.errors 
+                        ? data.errors.join(', ') 
+                        : (data.message || 'Registration failed. Please try again.');
+                    showAlert(errorMessage);
                 }
             } catch (error) {
-                console.error('Login error:', error);
+                console.error('Signup error:', error);
                 showAlert('Network error. Please check your connection.');
             } finally {
-                loginBtn.disabled = false;
+                signupBtn.disabled = false;
                 loading.style.display = 'none';
             }
         });
 
-        // Check if already logged in
+        // Redirect if already logged in
         if (localStorage.getItem('token')) {
             window.location.href = '/dashboard.html';
         }

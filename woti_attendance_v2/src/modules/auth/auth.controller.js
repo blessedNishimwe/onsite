@@ -2,6 +2,7 @@
 /**
  * Authentication Controller
  * Handles HTTP requests for authentication endpoints
+ * Uses admin approval workflow (no email verification)
  */
 
 const authService = require('./auth.service');
@@ -121,7 +122,7 @@ const getMe = asyncHandler(async (req, res) => {
 });
 
 /**
- * Self-registration (signup)
+ * Self-registration (signup) - pending admin approval
  * POST /api/auth/signup
  */
 const signup = asyncHandler(async (req, res) => {
@@ -140,48 +141,11 @@ const signup = asyncHandler(async (req, res) => {
   });
 });
 
-/**
- * Verify email with token
- * POST /api/auth/verify-email
- */
-const verifyEmail = asyncHandler(async (req, res) => {
-  const { token } = req.body;
-  
-  const result = await authService.verifyEmail(token);
-  
-  res.status(200).json({
-    success: true,
-    message: 'Email verified successfully. You can now login.',
-    data: {
-      user: result.user,
-      token: result.token,
-      refreshToken: result.refreshToken
-    }
-  });
-});
-
-/**
- * Resend verification email
- * POST /api/auth/resend-verification
- */
-const resendVerification = asyncHandler(async (req, res) => {
-  const { email } = req.body;
-  
-  const result = await authService.resendVerification(email);
-  
-  res.status(200).json({
-    success: true,
-    message: result.message
-  });
-});
-
 module.exports = {
   register,
   login,
   refreshToken,
   logout,
   getMe,
-  signup,
-  verifyEmail,
-  resendVerification
+  signup
 };

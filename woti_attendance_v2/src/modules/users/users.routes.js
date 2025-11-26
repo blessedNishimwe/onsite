@@ -1,7 +1,7 @@
 // src/modules/users/users.routes.js
 /**
  * Users Routes
- * Defines routes for user endpoints
+ * Defines routes for user endpoints including admin approval workflow
  */
 
 const express = require('express');
@@ -10,6 +10,7 @@ const usersController = require('./users.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
 const { requireAdmin, requireOwnerOrAdmin } = require('../../middleware/roleAuth.middleware');
 const { validateUserUpdate, validateUUIDParam, validateQueryParams } = require('../../middleware/validation.middleware');
+const { apiRateLimiter } = require('../../middleware/rateLimiter.middleware');
 
 /**
  * @route   GET /api/users/me
@@ -26,6 +27,13 @@ router.get('/me', authenticate, usersController.getMe);
 router.get('/stats', authenticate, requireAdmin, usersController.getUserStatistics);
 
 /**
+ * @route   GET /api/users/pending
+ * @desc    Get pending users awaiting approval
+ * @access  Private/Admin
+ */
+router.get('/pending', apiRateLimiter, authenticate, requireAdmin, validateQueryParams, usersController.getPendingUsers);
+
+/**
  * @route   GET /api/users
  * @desc    Get all users with filters
  * @access  Private/Admin
@@ -38,6 +46,20 @@ router.get('/', authenticate, requireAdmin, validateQueryParams, usersController
  * @access  Private (own profile or admin)
  */
 router.get('/:id', authenticate, validateUUIDParam('id'), requireOwnerOrAdmin('id'), usersController.getUserById);
+
+/**
+ * @route   PUT /api/users/:id/approve
+ * @desc    Approve pending user
+ * @access  Private/Admin
+ */
+router.put('/:id/approve', apiRateLimiter, authenticate, requireAdmin, validateUUIDParam('id'), usersController.approveUser);
+
+/**
+ * @route   PUT /api/users/:id/reject
+ * @desc    Reject pending user
+ * @access  Private/Admin
+ */
+router.put('/:id/reject', apiRateLimiter, authenticate, requireAdmin, validateUUIDParam('id'), usersController.rejectUser);
 
 /**
  * @route   PUT /api/users/:id
