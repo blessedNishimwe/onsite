@@ -321,11 +321,20 @@
         }
     }
 
-    // Get or generate device ID
+    // Get or generate device ID using secure random values
     function getDeviceId() {
         let deviceId = localStorage.getItem('deviceId');
         if (!deviceId) {
-            deviceId = 'web-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+            // Use crypto.getRandomValues for better entropy
+            const array = new Uint8Array(16);
+            if (window.crypto && window.crypto.getRandomValues) {
+                window.crypto.getRandomValues(array);
+                const randomHex = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
+                deviceId = 'web-' + randomHex.substring(0, 16) + '-' + Date.now();
+            } else {
+                // Fallback for older browsers
+                deviceId = 'web-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+            }
             localStorage.setItem('deviceId', deviceId);
         }
         return deviceId;

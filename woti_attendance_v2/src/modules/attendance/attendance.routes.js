@@ -46,6 +46,7 @@ router.post(
 router.get(
   '/status',
   authenticate,
+  apiRateLimiter,
   attendanceController.getStatus
 );
 
@@ -57,6 +58,7 @@ router.get(
 router.post(
   '/sync',
   authenticate,
+  apiRateLimiter,
   attendanceController.syncOfflineRecords
 );
 
@@ -68,6 +70,7 @@ router.post(
 router.get(
   '/my-records',
   authenticate,
+  apiRateLimiter,
   validateQueryParams,
   attendanceController.getMyRecords
 );
@@ -80,6 +83,7 @@ router.get(
 router.get(
   '/stats',
   authenticate,
+  apiRateLimiter,
   attendanceController.getStatistics
 );
 
@@ -92,6 +96,7 @@ router.get(
   '/',
   authenticate,
   requireAdmin,
+  apiRateLimiter,
   validateQueryParams,
   attendanceController.getAllRecords
 );

@@ -128,9 +128,20 @@ const validateGeofence = async (facilityId, userLatitude, userLongitude) => {
       method: 'postgis'
     };
   } catch (error) {
-    // If PostGIS functions fail, fallback to Haversine
-    if (error.message && error.message.includes('ST_DistanceSphere')) {
-      logger.warn('PostGIS not available, using Haversine fallback', { error: error.message });
+    // Check if this is a PostGIS-related error (function not found, extension not installed, etc.)
+    const isPostgisError = error.code === '42883' || // undefined_function
+                           error.code === '42846' || // cannot_coerce
+                           (error.message && (
+                             error.message.includes('ST_DistanceSphere') ||
+                             error.message.includes('ST_MakePoint') ||
+                             error.message.includes('postgis')
+                           ));
+
+    if (isPostgisError) {
+      logger.warn('PostGIS not available, using Haversine fallback', { 
+        errorCode: error.code, 
+        error: error.message 
+      });
       
       const fallbackResult = await query(
         `SELECT 

@@ -31,8 +31,19 @@ const detectImpossibleSpeed = (lastLocation, currentLocation) => {
     return { suspicious: false, speed: null, reason: null };
   }
 
+  // Validate timestamps
+  if (!lastLocation.timestamp || !currentLocation.timestamp) {
+    return { suspicious: false, speed: null, reason: null };
+  }
+
   const lastTime = new Date(lastLocation.timestamp);
   const currentTime = new Date(currentLocation.timestamp);
+
+  // Check for invalid dates
+  if (isNaN(lastTime.getTime()) || isNaN(currentTime.getTime())) {
+    return { suspicious: false, speed: null, reason: null };
+  }
+
   const timeDiffHours = (currentTime - lastTime) / (1000 * 60 * 60);
 
   // If time difference is too small or negative, flag as suspicious
@@ -219,6 +230,8 @@ const runSpoofingChecks = async (locationData, userId) => {
   if (userId && locationData.latitude && locationData.longitude) {
     const lastAttendance = await getLastAttendanceWithLocation(userId);
     if (lastAttendance) {
+      // Use provided timestamp or current time as fallback
+      const currentTimestamp = locationData.timestamp || new Date().toISOString();
       const speedCheck = detectImpossibleSpeed(
         {
           latitude: parseFloat(lastAttendance.latitude),
@@ -228,7 +241,7 @@ const runSpoofingChecks = async (locationData, userId) => {
         {
           latitude: locationData.latitude,
           longitude: locationData.longitude,
-          timestamp: new Date()
+          timestamp: currentTimestamp
         }
       );
 

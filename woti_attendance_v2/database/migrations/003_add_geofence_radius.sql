@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Migration: Add geofence_radius to facilities
--- Version: 002
+-- Version: 003
 -- Description: Enable PostGIS and add geofence radius column for attendance validation
 -- ============================================================================
 
