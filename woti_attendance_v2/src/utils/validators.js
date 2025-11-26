@@ -88,7 +88,9 @@ const isValidCoordinates = (lat, lon) => {
 
 // Role constants
 const ALL_ROLES = ['tester', 'data_clerk', 'focal', 'ddo', 'supervisor', 'backstopper', 'admin'];
-const SELF_REGISTRATION_ALLOWED_ROLES = ['tester', 'data_clerk', 'focal'];
+const SELF_REGISTRATION_ALLOWED_ROLES = ['tester', 'data_clerk', 'focal', 'ddo', 'supervisor'];
+// Field worker roles that require facility assignment
+const FIELD_WORKER_ROLES = ['tester', 'data_clerk', 'focal', 'ddo'];
 
 /**
  * Validate user role
@@ -209,5 +211,6 @@ module.exports = {
   validatePagination,
   validateUploadedFile,
   ALL_ROLES,
-  SELF_REGISTRATION_ALLOWED_ROLES
+  SELF_REGISTRATION_ALLOWED_ROLES,
+  FIELD_WORKER_ROLES
 };

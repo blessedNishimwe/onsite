@@ -1,16 +1,18 @@
 // src/modules/attendance/attendance.service.js
 /**
  * Attendance Service
- * Business logic for attendance operations with offline sync
+ * Business logic for attendance operations with offline sync, geofencing and spoofing detection
  */
 
 const attendanceRepository = require('./attendance.repository');
-const { batchResolveConflicts, validateSyncMetadata } = require('../../utils/syncResolver');
+const { validateSyncMetadata } = require('../../utils/syncResolver');
 const logger = require('../../utils/logger');
 const { query } = require('../../config/database');
+const { validateGeofence } = require('../../utils/geofencing');
+const { runSpoofingChecks } = require('../../utils/spoofingDetection');
 
 /**
- * Clock in user
+ * Clock in user with GPS validation
  * @param {Object} clockInData - Clock in data
  * @param {Object} user - User clocking in
  * @returns {Promise<Object>} Created attendance record
@@ -22,20 +24,77 @@ const clockIn = async (clockInData, user) => {
   if (activeAttendance) {
     throw new Error('You already have an active clock-in. Please clock out first.');
   }
+
+  // Use user's facility_id if not provided in request
+  const facilityId = clockInData.facility_id || user.facility_id;
+  
+  if (!facilityId) {
+    throw new Error('Facility ID is required. Please ensure you are assigned to a facility.');
+  }
+
+  // Initialize metadata for GPS tracking
+  const metadata = {
+    ...clockInData.metadata,
+    clock_in_method: clockInData.synced === false ? 'offline' : 'online'
+  };
+
+  // Only perform GPS validation for online clock-ins with coordinates
+  if (clockInData.synced !== false && clockInData.clock_in_latitude && clockInData.clock_in_longitude) {
+    // 1. Run spoofing detection checks
+    const spoofingResult = await runSpoofingChecks({
+      latitude: clockInData.clock_in_latitude,
+      longitude: clockInData.clock_in_longitude,
+      accuracy: clockInData.accuracy,
+      is_mocked: clockInData.is_mocked
+    }, user.id);
+
+    if (!spoofingResult.passed) {
+      throw new Error(spoofingResult.errors[0] || 'Location verification failed');
+    }
+
+    // Store spoofing warnings in metadata
+    if (spoofingResult.warnings.length > 0) {
+      metadata.spoofing_warnings = spoofingResult.warnings;
+      metadata.spoofing_flags = spoofingResult.flags;
+    }
+
+    // 2. Validate geofence
+    const geofenceResult = await validateGeofence(
+      facilityId,
+      clockInData.clock_in_latitude,
+      clockInData.clock_in_longitude
+    );
+
+    if (geofenceResult.error) {
+      throw new Error(geofenceResult.error);
+    }
+
+    if (!geofenceResult.isWithinGeofence) {
+      throw new Error(
+        `You are ${geofenceResult.distance}m away from ${geofenceResult.facilityName || 'facility'}. Maximum allowed: ${geofenceResult.maxRadius}m`
+      );
+    }
+
+    // Store geofence data in metadata
+    metadata.distance_from_facility = geofenceResult.distance;
+    metadata.geofence_radius = geofenceResult.maxRadius;
+    metadata.gps_accuracy = clockInData.accuracy;
+
+    if (geofenceResult.warning) {
+      metadata.geofence_warning = geofenceResult.warning;
+    }
+  }
   
   const attendanceData = {
     user_id: user.id,
-    facility_id: clockInData.facility_id,
+    facility_id: facilityId,
     clock_in_time: clockInData.clock_in_time || new Date().toISOString(),
     clock_in_latitude: clockInData.clock_in_latitude,
     clock_in_longitude: clockInData.clock_in_longitude,
     device_id: clockInData.device_id,
     client_timestamp: clockInData.client_timestamp || new Date().toISOString(),
     synced: clockInData.synced !== undefined ? clockInData.synced : true,
-    metadata: {
-      ...clockInData.metadata,
-      clock_in_method: clockInData.synced === false ? 'offline' : 'online'
-    }
+    metadata
   };
   
   const attendance = await attendanceRepository.clockIn(attendanceData);
@@ -50,21 +109,26 @@ const clockIn = async (clockInData, user) => {
       'attendance',
       attendance.id,
       `User clocked in at ${attendance.clock_in_time}`,
-      JSON.stringify({ facility_id: attendance.facility_id, device_id: attendance.device_id })
+      JSON.stringify({ 
+        facility_id: attendance.facility_id, 
+        device_id: attendance.device_id,
+        distance_from_facility: metadata.distance_from_facility 
+      })
     ]
   );
   
   logger.info('User clocked in', {
     userId: user.id,
     attendanceId: attendance.id,
-    facilityId: attendance.facility_id
+    facilityId: attendance.facility_id,
+    distance: metadata.distance_from_facility
   });
   
   return attendance;
 };
 
 /**
- * Clock out user
+ * Clock out user with GPS validation
  * @param {Object} clockOutData - Clock out data
  * @param {Object} user - User clocking out
  * @returns {Promise<Object>} Updated attendance record
@@ -76,21 +140,75 @@ const clockOut = async (clockOutData, user) => {
   if (!activeAttendance) {
     throw new Error('No active clock-in found. Please clock in first.');
   }
+
+  // Initialize metadata
+  const metadata = {
+    ...activeAttendance.metadata,
+    ...clockOutData.metadata,
+    clock_out_method: clockOutData.synced === false ? 'offline' : 'online'
+  };
+
+  // Only perform GPS validation for online clock-outs with coordinates
+  if (clockOutData.synced !== false && clockOutData.clock_out_latitude && clockOutData.clock_out_longitude) {
+    // 1. Run spoofing detection checks
+    const spoofingResult = await runSpoofingChecks({
+      latitude: clockOutData.clock_out_latitude,
+      longitude: clockOutData.clock_out_longitude,
+      accuracy: clockOutData.accuracy,
+      is_mocked: clockOutData.is_mocked
+    }, user.id);
+
+    if (!spoofingResult.passed) {
+      throw new Error(spoofingResult.errors[0] || 'Location verification failed');
+    }
+
+    // Store spoofing warnings in metadata
+    if (spoofingResult.warnings.length > 0) {
+      metadata.clock_out_spoofing_warnings = spoofingResult.warnings;
+      metadata.clock_out_spoofing_flags = spoofingResult.flags;
+    }
+
+    // 2. Validate geofence for clock-out
+    const geofenceResult = await validateGeofence(
+      activeAttendance.facility_id,
+      clockOutData.clock_out_latitude,
+      clockOutData.clock_out_longitude
+    );
+
+    if (geofenceResult.error) {
+      throw new Error(geofenceResult.error);
+    }
+
+    if (!geofenceResult.isWithinGeofence) {
+      throw new Error(
+        `You are ${geofenceResult.distance}m away from ${geofenceResult.facilityName || 'facility'}. Maximum allowed: ${geofenceResult.maxRadius}m`
+      );
+    }
+
+    // Store geofence data in metadata
+    metadata.clock_out_distance_from_facility = geofenceResult.distance;
+    metadata.clock_out_gps_accuracy = clockOutData.accuracy;
+
+    if (geofenceResult.warning) {
+      metadata.clock_out_geofence_warning = geofenceResult.warning;
+    }
+  }
   
   const clockOutInfo = {
     clock_out_time: clockOutData.clock_out_time || new Date().toISOString(),
     clock_out_latitude: clockOutData.clock_out_latitude,
     clock_out_longitude: clockOutData.clock_out_longitude,
     notes: clockOutData.notes,
-    metadata: {
-      ...activeAttendance.metadata,
-      ...clockOutData.metadata,
-      clock_out_method: clockOutData.synced === false ? 'offline' : 'online'
-    }
+    metadata
   };
   
   const attendance = await attendanceRepository.clockOut(activeAttendance.id, clockOutInfo);
   
+  // Calculate duration
+  const durationHours = attendance.clock_out_time 
+    ? (new Date(attendance.clock_out_time) - new Date(attendance.clock_in_time)) / (1000 * 60 * 60) 
+    : null;
+
   // Log activity
   await query(
     `INSERT INTO activities (user_id, action, entity_type, entity_id, description, metadata)
@@ -101,13 +219,19 @@ const clockOut = async (clockOutData, user) => {
       'attendance',
       attendance.id,
       `User clocked out at ${attendance.clock_out_time}`,
-      JSON.stringify({ facility_id: attendance.facility_id, duration_hours: attendance.clock_out_time ? (new Date(attendance.clock_out_time) - new Date(attendance.clock_in_time)) / (1000 * 60 * 60) : null })
+      JSON.stringify({ 
+        facility_id: attendance.facility_id, 
+        duration_hours: durationHours,
+        distance_from_facility: metadata.clock_out_distance_from_facility
+      })
     ]
   );
   
   logger.info('User clocked out', {
     userId: user.id,
-    attendanceId: attendance.id
+    attendanceId: attendance.id,
+    durationHours,
+    distance: metadata.clock_out_distance_from_facility
   });
   
   return attendance;
@@ -150,10 +274,6 @@ const syncOfflineRecords = async (records, user) => {
       validation_errors: validationErrors
     };
   }
-  
-  // Fetch existing server records for conflict detection
-  const deviceIds = [...new Set(validRecords.map(r => r.device_id))];
-  const clientTimestamps = validRecords.map(r => r.client_timestamp);
   
   // Perform bulk sync with conflict resolution
   const syncResults = await attendanceRepository.bulkSync(validRecords);
@@ -201,6 +321,15 @@ const syncOfflineRecords = async (records, user) => {
 };
 
 /**
+ * Get current attendance status for a user
+ * @param {string} userId - User ID
+ * @returns {Promise<Object|null>} Active attendance or null
+ */
+const getCurrentStatus = async (userId) => {
+  return await attendanceRepository.findActiveByUserId(userId);
+};
+
+/**
  * Get user's attendance records
  * @param {string} userId - User ID
  * @param {Object} filters - Filter options
@@ -232,6 +361,7 @@ module.exports = {
   clockIn,
   clockOut,
   syncOfflineRecords,
+  getCurrentStatus,
   getUserAttendance,
   getAllAttendance,
   getAttendanceStatistics

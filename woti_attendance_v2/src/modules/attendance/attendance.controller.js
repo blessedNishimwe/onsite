@@ -37,6 +37,22 @@ const clockOut = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Get current attendance status
+ * GET /api/attendance/status
+ */
+const getStatus = asyncHandler(async (req, res) => {
+  const activeAttendance = await attendanceService.getCurrentStatus(req.user.id);
+  
+  res.status(200).json({
+    success: true,
+    data: {
+      isClockedIn: !!activeAttendance,
+      activeAttendance: activeAttendance || null
+    }
+  });
+});
+
+/**
  * Sync offline records
  * POST /api/attendance/sync
  */
@@ -147,6 +163,7 @@ const getStatistics = asyncHandler(async (req, res) => {
 module.exports = {
   clockIn,
   clockOut,
+  getStatus,
   syncOfflineRecords,
   getMyRecords,
   getAllRecords,

@@ -39,6 +39,17 @@ router.post(
 );
 
 /**
+ * @route   GET /api/attendance/status
+ * @desc    Get current attendance status (clocked in or not)
+ * @access  Private
+ */
+router.get(
+  '/status',
+  authenticate,
+  attendanceController.getStatus
+);
+
+/**
  * @route   POST /api/attendance/sync
  * @desc    Sync offline attendance records
  * @access  Private

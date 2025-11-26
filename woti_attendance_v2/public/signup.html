@@ -242,6 +242,33 @@
                 </select>
             </div>
 
+            <!-- Facility Location Section -->
+            <div id="facilitySection">
+                <div class="form-group">
+                    <label for="region">Region <span id="regionRequired" style="color: #c33;">*</span></label>
+                    <select id="region" name="region">
+                        <option value="">Select region</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="council">Council <span id="councilRequired" style="color: #c33;">*</span></label>
+                    <select id="council" name="council" disabled>
+                        <option value="">Select council</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="facility_id">Facility <span id="facilityRequired" style="color: #c33;">*</span></label>
+                    <select id="facility_id" name="facility_id" disabled>
+                        <option value="">Select facility</option>
+                    </select>
+                </div>
+                <p id="facilityNote" class="password-requirements">
+                    Facility selection is required for field workers (Tester, Data Clerk, Focal Point, DDO).
+                </p>
+            </div>
+
             <button type="submit" class="btn" id="signupBtn">
                 Create Account
             </button>
@@ -264,6 +291,15 @@
         const loading = document.getElementById('loading');
         const alertDiv = document.getElementById('alert');
 
+        // Cascading dropdown elements
+        const roleSelect = document.getElementById('role');
+        const regionSelect = document.getElementById('region');
+        const councilSelect = document.getElementById('council');
+        const facilitySelect = document.getElementById('facility_id');
+
+        // Roles that require facility selection
+        const FIELD_WORKER_ROLES = ['tester', 'data_clerk', 'focal', 'ddo'];
+
         // Show alert message
         function showAlert(message, type = 'error') {
             alertDiv.className = `alert alert-${type}`;
@@ -277,9 +313,110 @@
             }
         }
 
+        // Check if facility is required based on role
+        function isFacilityRequired() {
+            return FIELD_WORKER_ROLES.includes(roleSelect.value);
+        }
+
+        // Update required indicators based on role
+        function updateRequiredIndicators() {
+            const isRequired = isFacilityRequired();
+            document.getElementById('regionRequired').style.display = isRequired ? 'inline' : 'none';
+            document.getElementById('councilRequired').style.display = isRequired ? 'inline' : 'none';
+            document.getElementById('facilityRequired').style.display = isRequired ? 'inline' : 'none';
+        }
+
+        // Load regions on page load
+        async function loadRegions() {
+            try {
+                const response = await fetch('/api/locations/regions');
+                const data = await response.json();
+                
+                if (data.success && data.data.regions) {
+                    regionSelect.innerHTML = '<option value="">Select region</option>';
+                    data.data.regions.forEach(region => {
+                        regionSelect.innerHTML += `<option value="${region.id}">${region.name}</option>`;
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading regions:', error);
+            }
+        }
+
+        // Load councils based on selected region
+        async function loadCouncils(regionId) {
+            councilSelect.innerHTML = '<option value="">Loading...</option>';
+            councilSelect.disabled = true;
+            facilitySelect.innerHTML = '<option value="">Select facility</option>';
+            facilitySelect.disabled = true;
+
+            if (!regionId) {
+                councilSelect.innerHTML = '<option value="">Select council</option>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/locations/councils?region_id=${regionId}`);
+                const data = await response.json();
+                
+                if (data.success && data.data.councils) {
+                    councilSelect.innerHTML = '<option value="">Select council</option>';
+                    data.data.councils.forEach(council => {
+                        councilSelect.innerHTML += `<option value="${council.id}">${council.name}</option>`;
+                    });
+                    councilSelect.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error loading councils:', error);
+                councilSelect.innerHTML = '<option value="">Error loading councils</option>';
+            }
+        }
+
+        // Load facilities based on selected council
+        async function loadFacilities(councilId) {
+            facilitySelect.innerHTML = '<option value="">Loading...</option>';
+            facilitySelect.disabled = true;
+
+            if (!councilId) {
+                facilitySelect.innerHTML = '<option value="">Select facility</option>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/locations/facilities?council_id=${councilId}`);
+                const data = await response.json();
+                
+                if (data.success && data.data.facilities) {
+                    facilitySelect.innerHTML = '<option value="">Select facility</option>';
+                    data.data.facilities.forEach(facility => {
+                        facilitySelect.innerHTML += `<option value="${facility.id}">${facility.name}</option>`;
+                    });
+                    facilitySelect.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error loading facilities:', error);
+                facilitySelect.innerHTML = '<option value="">Error loading facilities</option>';
+            }
+        }
+
+        // Event listeners for cascading dropdowns
+        roleSelect.addEventListener('change', updateRequiredIndicators);
+        regionSelect.addEventListener('change', () => loadCouncils(regionSelect.value));
+        councilSelect.addEventListener('change', () => loadFacilities(councilSelect.value));
+
+        // Initialize on page load
+        loadRegions();
+        updateRequiredIndicators();
+
         // Handle form submission
         signupForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            // Validate facility selection for field workers
+            if (isFacilityRequired() && !facilitySelect.value) {
+                showAlert('Facility selection is required for your role.');
+                return;
+            }
 
             const formData = {
                 first_name: document.getElementById('first_name').value,
@@ -289,6 +426,11 @@
                 password: document.getElementById('password').value,
                 role: document.getElementById('role').value
             };
+
+            // Add facility_id if selected
+            if (facilitySelect.value) {
+                formData.facility_id = facilitySelect.value;
+            }
 
             // Disable button and show loading
             signupBtn.disabled = true;
@@ -309,6 +451,9 @@
                 if (response.ok) {
                     showAlert(data.message || 'Registration successful! Please wait for admin approval.', 'success');
                     signupForm.reset();
+                    councilSelect.disabled = true;
+                    facilitySelect.disabled = true;
+                    updateRequiredIndicators();
                     
                     // Show success message for longer
                     setTimeout(() => {
