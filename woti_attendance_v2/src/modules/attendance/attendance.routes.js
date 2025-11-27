@@ -39,6 +39,18 @@ router.post(
 );
 
 /**
+ * @route   GET /api/attendance/status
+ * @desc    Get current attendance status (clocked in or not)
+ * @access  Private
+ */
+router.get(
+  '/status',
+  authenticate,
+  apiRateLimiter,
+  attendanceController.getStatus
+);
+
+/**
  * @route   POST /api/attendance/sync
  * @desc    Sync offline attendance records
  * @access  Private
@@ -46,6 +58,7 @@ router.post(
 router.post(
   '/sync',
   authenticate,
+  apiRateLimiter,
   attendanceController.syncOfflineRecords
 );
 
@@ -57,6 +70,7 @@ router.post(
 router.get(
   '/my-records',
   authenticate,
+  apiRateLimiter,
   validateQueryParams,
   attendanceController.getMyRecords
 );
@@ -69,6 +83,7 @@ router.get(
 router.get(
   '/stats',
   authenticate,
+  apiRateLimiter,
   attendanceController.getStatistics
 );
 
@@ -81,6 +96,7 @@ router.get(
   '/',
   authenticate,
   requireAdmin,
+  apiRateLimiter,
   validateQueryParams,
   attendanceController.getAllRecords
 );

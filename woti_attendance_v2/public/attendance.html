@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WOTI Attendance - Clock In/Out</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+
+        .logo p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .user-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .user-info h3 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .user-info p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 10px 0;
+        }
+
+        .status-clocked-in {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-clocked-out {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .gps-info {
+            background: #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .gps-info .label {
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .gps-info .value {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .gps-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .gps-status .icon {
+            font-size: 20px;
+        }
+
+        .gps-status.acquiring .icon {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .btn {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .btn-clock-in {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-clock-out {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            padding: 12px 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .alert-success {
+            background: #efe;
+            color: #3c3;
+            border: 1px solid #cfc;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .nav-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .nav-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .nav-link a:hover {
+            text-decoration: underline;
+        }
+
+        .clock-in-time {
+            background: #e3f2fd;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .clock-in-time .label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .clock-in-time .time {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1976d2;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>🏥 WOTI</h1>
+            <p>Attendance Management</p>
+        </div>
+
+        <div id="alert" style="display: none;"></div>
+
+        <div id="userInfo" class="user-info">
+            <h3 id="userName">Loading...</h3>
+            <p id="userFacility">Loading facility...</p>
+            <div id="statusBadge" class="status-badge status-clocked-out">
+                Checking status...
+            </div>
+        </div>
+
+        <div id="clockInTimeSection" class="clock-in-time hidden">
+            <div class="label">Clocked in at</div>
+            <div class="time" id="clockInTimeDisplay">--:--</div>
+        </div>
+
+        <div class="gps-info">
+            <div id="gpsStatus" class="gps-status acquiring">
+                <span class="icon">📍</span>
+                <span id="gpsStatusText">Acquiring GPS location...</span>
+            </div>
+            <div class="label">Coordinates:</div>
+            <div class="value" id="gpsCoordinates">Waiting for GPS...</div>
+            <div class="label" style="margin-top: 8px;">Accuracy:</div>
+            <div class="value" id="gpsAccuracy">--</div>
+        </div>
+
+        <button id="clockInBtn" class="btn btn-clock-in" disabled>
+            🕐 Clock In
+        </button>
+
+        <button id="clockOutBtn" class="btn btn-clock-out hidden" disabled>
+            🕐 Clock Out
+        </button>
+
+        <div class="loading" id="loading">
+            Processing...
+        </div>
+
+        <div class="nav-link">
+            <a href="/dashboard.html">← Back to Dashboard</a>
+        </div>
+    </div>
+
+    <script src="/js/attendance.js"></script>
+</body>
+</html>

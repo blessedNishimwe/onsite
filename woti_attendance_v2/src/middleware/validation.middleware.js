@@ -13,7 +13,8 @@ const {
   isValidRole,
   isValidSelfRegistrationRole,
   sanitizeString,
-  SELF_REGISTRATION_ALLOWED_ROLES
+  SELF_REGISTRATION_ALLOWED_ROLES,
+  FIELD_WORKER_ROLES
 } = require('../utils/validators');
 
 /**
@@ -289,8 +290,15 @@ const validateSignup = (req, res, next) => {
     errors.push(`Invalid role. Allowed roles for self-registration: ${SELF_REGISTRATION_ALLOWED_ROLES.join(', ')}`);
   }
   
-  // Optional facility_id validation
-  if (facility_id && !isValidUUID(facility_id)) {
+  // Facility validation: required for field workers
+  if (role && FIELD_WORKER_ROLES.includes(role)) {
+    if (!facility_id) {
+      errors.push('Facility selection is required for field worker roles');
+    } else if (!isValidUUID(facility_id)) {
+      errors.push('Invalid facility ID');
+    }
+  } else if (facility_id && !isValidUUID(facility_id)) {
+    // Optional facility_id validation for non-field workers
     errors.push('Invalid facility ID');
   }
   
