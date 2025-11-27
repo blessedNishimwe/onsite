@@ -21,6 +21,7 @@ const usersRoutes = require('./modules/users/users.routes');
 const facilitiesRoutes = require('./modules/facilities/facilities.routes');
 const attendanceRoutes = require('./modules/attendance/attendance.routes');
 const locationsRoutes = require('./modules/locations/locations.routes');
+const timesheetRoutes = require('./modules/timesheet');
 
 const app = express();
 
@@ -160,6 +161,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/facilities', facilitiesRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/locations', locationsRoutes);
+app.use('/api/timesheet', timesheetRoutes);
 
 // ============================================================================
 // ERROR HANDLING
