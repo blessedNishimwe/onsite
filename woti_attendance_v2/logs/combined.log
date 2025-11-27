@@ -380,3 +380,7 @@
 {"level":"debug","message":"Client acquired from pool","timestamp":"2025-11-24T19:15:54.057Z"}
 {"duration":4,"level":"debug","message":"Executed query","rows":1,"text":"INSERT INTO activities (user_id, action, entity_type, entity_id, description, ip_address, user_agent)\n       VALUES ($1, $2, $3, $4, $5, $6, $7)","timestamp":"2025-11-24T19:15:54.061Z"}
 {"email":"finaltest@example.com","level":"info","message":"User logged in successfully","role":"focal","timestamp":"2025-11-24T19:15:54.061Z","userId":"42c585e0-751b-49c3-a853-13108890608b"}
+{"level":"http","message":"::1 - - [27/Nov/2025:11:38:01 +0000] \"GET /timesheet.html HTTP/1.1\" 200 15272 \"-\" \"curl/8.5.0\"","timestamp":"2025-11-27T11:38:01.451Z"}
+{"level":"http","message":"::1 - - [27/Nov/2025:11:38:31 +0000] \"GET /timesheet.html HTTP/1.1\" 200 15272 \"-\" \"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/142.0.0.0 Safari/537.36\"","timestamp":"2025-11-27T11:38:31.128Z"}
+{"level":"http","message":"::1 - - [27/Nov/2025:11:38:31 +0000] \"GET /js/timesheet.js HTTP/1.1\" 200 17283 \"-\" \"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/142.0.0.0 Safari/537.36\"","timestamp":"2025-11-27T11:38:31.192Z"}
+{"level":"http","message":"::1 - - [27/Nov/2025:11:38:31 +0000] \"GET /index.html HTTP/1.1\" 200 7684 \"-\" \"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/142.0.0.0 Safari/537.36\"","timestamp":"2025-11-27T11:38:31.293Z"}

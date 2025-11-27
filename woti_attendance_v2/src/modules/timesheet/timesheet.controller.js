@@ -149,7 +149,7 @@ const generateTimesheet = asyncHandler(async (req, res) => {
 
 /**
  * Update attendance activity
- * PUT /api/attendance/:id/activity
+ * PUT /api/timesheet/attendance/:id/activity
  */
 const updateAttendanceActivity = asyncHandler(async (req, res) => {
   const { id } = req.params;
