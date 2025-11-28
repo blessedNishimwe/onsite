@@ -56,8 +56,10 @@ const clockIn = async (attendanceData) => {
     `INSERT INTO attendance (
       user_id, facility_id, clock_in_time, 
       clock_in_latitude, clock_in_longitude,
+      clock_in_accuracy_meters, clock_in_distance_meters,
+      device_fingerprint, validation_status,
       device_id, client_timestamp, synced, metadata
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     RETURNING *`,
     [
       attendanceData.user_id,
@@ -65,6 +67,10 @@ const clockIn = async (attendanceData) => {
       attendanceData.clock_in_time,
       attendanceData.clock_in_latitude || null,
       attendanceData.clock_in_longitude || null,
+      attendanceData.clock_in_accuracy_meters || null,
+      attendanceData.clock_in_distance_meters || null,
+      attendanceData.device_fingerprint || null,
+      attendanceData.validation_status || 'verified',
       attendanceData.device_id,
       attendanceData.client_timestamp || attendanceData.clock_in_time,
       attendanceData.synced !== undefined ? attendanceData.synced : true,
@@ -88,15 +94,19 @@ const clockOut = async (attendanceId, clockOutData) => {
        clock_out_time = $1,
        clock_out_latitude = $2,
        clock_out_longitude = $3,
+       clock_out_accuracy_meters = $4,
+       clock_out_distance_meters = $5,
        status = 'completed',
-       notes = COALESCE($4, notes),
-       metadata = COALESCE($5, metadata)
-     WHERE id = $6
+       notes = COALESCE($6, notes),
+       metadata = COALESCE($7, metadata)
+     WHERE id = $8
      RETURNING *`,
     [
       clockOutData.clock_out_time,
       clockOutData.clock_out_latitude || null,
       clockOutData.clock_out_longitude || null,
+      clockOutData.clock_out_accuracy_meters || null,
+      clockOutData.clock_out_distance_meters || null,
       clockOutData.notes || null,
       clockOutData.metadata || null,
       attendanceId

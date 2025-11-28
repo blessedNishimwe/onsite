@@ -9,7 +9,8 @@ const { validateSyncMetadata } = require('../../utils/syncResolver');
 const logger = require('../../utils/logger');
 const { query } = require('../../config/database');
 const { validateGeofence } = require('../../utils/geofencing');
-const { runSpoofingChecks } = require('../../utils/spoofingDetection');
+const { runSpoofingChecks, MAX_ACCEPTABLE_ACCURACY } = require('../../utils/spoofingDetection');
+const { validateGpsCoordinates } = require('../../utils/validators');
 
 /**
  * Clock in user with GPS validation
@@ -38,8 +39,40 @@ const clockIn = async (clockInData, user) => {
     clock_in_method: clockInData.synced === false ? 'offline' : 'online'
   };
 
-  // Only perform GPS validation for online clock-ins with coordinates
-  if (clockInData.synced !== false && clockInData.clock_in_latitude && clockInData.clock_in_longitude) {
+  // Initialize validation status and tracking fields
+  let validationStatus = 'verified';
+  let clockInAccuracyMeters = null;
+  let clockInDistanceMeters = null;
+  const deviceFingerprint = clockInData.device_fingerprint || null;
+
+  // For online clock-ins, GPS is REQUIRED
+  if (clockInData.synced !== false) {
+    // Validate GPS coordinates are provided and valid
+    const coordValidation = validateGpsCoordinates(
+      clockInData.clock_in_latitude,
+      clockInData.clock_in_longitude
+    );
+
+    if (!coordValidation.isValid) {
+      throw new Error(coordValidation.error);
+    }
+
+    if (coordValidation.warning) {
+      metadata.coordinate_warning = coordValidation.warning;
+      validationStatus = 'flagged';
+    }
+
+    // Validate accuracy is provided and acceptable
+    if (clockInData.accuracy === undefined || clockInData.accuracy === null) {
+      throw new Error('GPS accuracy is required for clock-in');
+    }
+
+    if (clockInData.accuracy > MAX_ACCEPTABLE_ACCURACY) {
+      throw new Error(`GPS accuracy too low (${Math.round(clockInData.accuracy)}m). Maximum allowed: ${MAX_ACCEPTABLE_ACCURACY}m. Please move to an open area for better GPS signal.`);
+    }
+
+    clockInAccuracyMeters = clockInData.accuracy;
+
     // 1. Run spoofing detection checks
     const spoofingResult = await runSpoofingChecks({
       latitude: clockInData.clock_in_latitude,
@@ -56,6 +89,7 @@ const clockIn = async (clockInData, user) => {
     if (spoofingResult.warnings.length > 0) {
       metadata.spoofing_warnings = spoofingResult.warnings;
       metadata.spoofing_flags = spoofingResult.flags;
+      validationStatus = 'flagged';
     }
 
     // 2. Validate geofence
@@ -75,6 +109,9 @@ const clockIn = async (clockInData, user) => {
       );
     }
 
+    // Store distance for tracking
+    clockInDistanceMeters = geofenceResult.distance;
+
     // Store geofence data in metadata
     metadata.distance_from_facility = geofenceResult.distance;
     metadata.geofence_radius = geofenceResult.maxRadius;
@@ -83,6 +120,9 @@ const clockIn = async (clockInData, user) => {
     if (geofenceResult.warning) {
       metadata.geofence_warning = geofenceResult.warning;
     }
+  } else {
+    // Offline clock-in - mark as unverified
+    validationStatus = 'unverified';
   }
   
   const attendanceData = {
@@ -91,6 +131,10 @@ const clockIn = async (clockInData, user) => {
     clock_in_time: clockInData.clock_in_time || new Date().toISOString(),
     clock_in_latitude: clockInData.clock_in_latitude,
     clock_in_longitude: clockInData.clock_in_longitude,
+    clock_in_accuracy_meters: clockInAccuracyMeters,
+    clock_in_distance_meters: clockInDistanceMeters,
+    device_fingerprint: deviceFingerprint,
+    validation_status: validationStatus,
     device_id: clockInData.device_id,
     client_timestamp: clockInData.client_timestamp || new Date().toISOString(),
     synced: clockInData.synced !== undefined ? clockInData.synced : true,
@@ -148,8 +192,37 @@ const clockOut = async (clockOutData, user) => {
     clock_out_method: clockOutData.synced === false ? 'offline' : 'online'
   };
 
-  // Only perform GPS validation for online clock-outs with coordinates
-  if (clockOutData.synced !== false && clockOutData.clock_out_latitude && clockOutData.clock_out_longitude) {
+  // Initialize clock-out tracking fields
+  let clockOutAccuracyMeters = null;
+  let clockOutDistanceMeters = null;
+
+  // For online clock-outs, GPS is REQUIRED
+  if (clockOutData.synced !== false) {
+    // Validate GPS coordinates are provided and valid
+    const coordValidation = validateGpsCoordinates(
+      clockOutData.clock_out_latitude,
+      clockOutData.clock_out_longitude
+    );
+
+    if (!coordValidation.isValid) {
+      throw new Error(coordValidation.error);
+    }
+
+    if (coordValidation.warning) {
+      metadata.clock_out_coordinate_warning = coordValidation.warning;
+    }
+
+    // Validate accuracy is provided and acceptable
+    if (clockOutData.accuracy === undefined || clockOutData.accuracy === null) {
+      throw new Error('GPS accuracy is required for clock-out');
+    }
+
+    if (clockOutData.accuracy > MAX_ACCEPTABLE_ACCURACY) {
+      throw new Error(`GPS accuracy too low (${Math.round(clockOutData.accuracy)}m). Maximum allowed: ${MAX_ACCEPTABLE_ACCURACY}m. Please move to an open area for better GPS signal.`);
+    }
+
+    clockOutAccuracyMeters = clockOutData.accuracy;
+
     // 1. Run spoofing detection checks
     const spoofingResult = await runSpoofingChecks({
       latitude: clockOutData.clock_out_latitude,
@@ -185,6 +258,9 @@ const clockOut = async (clockOutData, user) => {
       );
     }
 
+    // Store distance for tracking
+    clockOutDistanceMeters = geofenceResult.distance;
+
     // Store geofence data in metadata
     metadata.clock_out_distance_from_facility = geofenceResult.distance;
     metadata.clock_out_gps_accuracy = clockOutData.accuracy;
@@ -198,6 +274,8 @@ const clockOut = async (clockOutData, user) => {
     clock_out_time: clockOutData.clock_out_time || new Date().toISOString(),
     clock_out_latitude: clockOutData.clock_out_latitude,
     clock_out_longitude: clockOutData.clock_out_longitude,
+    clock_out_accuracy_meters: clockOutAccuracyMeters,
+    clock_out_distance_meters: clockOutDistanceMeters,
     notes: clockOutData.notes,
     metadata
   };
