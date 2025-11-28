@@ -70,12 +70,13 @@ ADD COLUMN IF NOT EXISTS clock_out_distance_meters FLOAT,
 ADD COLUMN IF NOT EXISTS device_fingerprint TEXT,
 ADD COLUMN IF NOT EXISTS validation_status VARCHAR(20) DEFAULT 'verified';
 
--- Add check constraint for validation_status (only if it doesn't exist)
+-- Add check constraint for validation_status (only if it doesn't exist on attendance table)
 DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint 
         WHERE conname = 'attendance_validation_status_check'
+          AND conrelid = 'attendance'::regclass
     ) THEN
         ALTER TABLE attendance
         ADD CONSTRAINT attendance_validation_status_check 

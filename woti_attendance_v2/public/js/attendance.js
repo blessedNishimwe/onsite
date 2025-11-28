@@ -169,6 +169,25 @@
     }
   }
 
+  // Get or generate device ID using secure random values
+  function getDeviceId() {
+    let deviceId = localStorage.getItem('deviceId');
+    if (!deviceId) {
+      // Use crypto.getRandomValues for better entropy
+      const array = new Uint8Array(16);
+      if (window.crypto && window.crypto.getRandomValues) {
+        window.crypto.getRandomValues(array);
+        const randomHex = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
+        deviceId = 'web-' + randomHex.substring(0, 16) + '-' + Date.now();
+      } else {
+        // Fallback for older browsers
+        deviceId = 'web-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+      }
+      localStorage.setItem('deviceId', deviceId);
+    }
+    return deviceId;
+  }
+
   // Generate device fingerprint
   function generateDeviceFingerprint() {
     const components = [
@@ -190,8 +209,9 @@
       hash = hash & hash; // Convert to 32bit integer
     }
         
-    // Add random component from crypto for uniqueness
-    const randomPart = getDeviceId().split('-')[1] || 'default';
+    // Add random component for uniqueness
+    const deviceId = getDeviceId();
+    const randomPart = deviceId.split('-')[1] || 'default';
         
     return 'fp-' + Math.abs(hash).toString(16) + '-' + randomPart;
   }
@@ -412,25 +432,6 @@
     } finally {
       setLoading(false);
     }
-  }
-
-  // Get or generate device ID using secure random values
-  function getDeviceId() {
-    let deviceId = localStorage.getItem('deviceId');
-    if (!deviceId) {
-      // Use crypto.getRandomValues for better entropy
-      const array = new Uint8Array(16);
-      if (window.crypto && window.crypto.getRandomValues) {
-        window.crypto.getRandomValues(array);
-        const randomHex = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
-        deviceId = 'web-' + randomHex.substring(0, 16) + '-' + Date.now();
-      } else {
-        // Fallback for older browsers
-        deviceId = 'web-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
-      }
-      localStorage.setItem('deviceId', deviceId);
-    }
-    return deviceId;
   }
 
   // Event Listeners

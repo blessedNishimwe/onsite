@@ -55,17 +55,18 @@ const generateRefreshToken = (user) => {
  * @returns {Date} Expiration date
  */
 const getTokenExpirationDate = () => {
-  // Parse expiresIn from authConfig (e.g., '7d', '24h', '1d')
+  // Parse expiresIn from authConfig (e.g., '7d', '24h', '1d', '30m')
   const expiresIn = authConfig.jwt.expiresIn || '7d';
-  const match = expiresIn.match(/^(\d+)([dhms])$/);
+  const match = expiresIn.match(/^(\d+)([dhms])$/i);
   
   if (!match) {
-    // Default to 7 days if parsing fails
+    // Log warning and default to 7 days if parsing fails
+    logger.warn('Could not parse JWT expiresIn, defaulting to 7 days', { expiresIn });
     return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   }
   
   const value = parseInt(match[1]);
-  const unit = match[2];
+  const unit = match[2].toLowerCase();
   
   let ms = 0;
   switch (unit) {
@@ -81,6 +82,10 @@ const getTokenExpirationDate = () => {
   case 's':
     ms = value * 1000;
     break;
+  default:
+    // This shouldn't happen due to regex, but add safety
+    logger.warn('Unknown time unit in JWT expiresIn, defaulting to 7 days', { unit, expiresIn });
+    ms = 7 * 24 * 60 * 60 * 1000;
   }
   
   return new Date(Date.now() + ms);

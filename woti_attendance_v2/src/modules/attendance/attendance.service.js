@@ -13,6 +13,24 @@ const { runSpoofingChecks, MAX_ACCEPTABLE_ACCURACY } = require('../../utils/spoo
 const { validateGpsCoordinates } = require('../../utils/validators');
 
 /**
+ * Validate GPS accuracy is within acceptable limits
+ * @param {number} accuracy - GPS accuracy in meters
+ * @param {string} action - Action name for error message ('clock-in' or 'clock-out')
+ * @throws {Error} If accuracy is not provided or exceeds limit
+ */
+const validateAccuracy = (accuracy, action) => {
+  if (accuracy === undefined || accuracy === null) {
+    throw new Error(`GPS accuracy is required for ${action}`);
+  }
+
+  if (accuracy > MAX_ACCEPTABLE_ACCURACY) {
+    throw new Error(
+      `GPS accuracy too low (${Math.round(accuracy)}m). Maximum allowed: ${MAX_ACCEPTABLE_ACCURACY}m. Please move to an open area for better GPS signal.`
+    );
+  }
+};
+
+/**
  * Clock in user with GPS validation
  * @param {Object} clockInData - Clock in data
  * @param {Object} user - User clocking in
@@ -63,13 +81,7 @@ const clockIn = async (clockInData, user) => {
     }
 
     // Validate accuracy is provided and acceptable
-    if (clockInData.accuracy === undefined || clockInData.accuracy === null) {
-      throw new Error('GPS accuracy is required for clock-in');
-    }
-
-    if (clockInData.accuracy > MAX_ACCEPTABLE_ACCURACY) {
-      throw new Error(`GPS accuracy too low (${Math.round(clockInData.accuracy)}m). Maximum allowed: ${MAX_ACCEPTABLE_ACCURACY}m. Please move to an open area for better GPS signal.`);
-    }
+    validateAccuracy(clockInData.accuracy, 'clock-in');
 
     clockInAccuracyMeters = clockInData.accuracy;
 
@@ -213,13 +225,8 @@ const clockOut = async (clockOutData, user) => {
     }
 
     // Validate accuracy is provided and acceptable
-    if (clockOutData.accuracy === undefined || clockOutData.accuracy === null) {
-      throw new Error('GPS accuracy is required for clock-out');
-    }
-
-    if (clockOutData.accuracy > MAX_ACCEPTABLE_ACCURACY) {
-      throw new Error(`GPS accuracy too low (${Math.round(clockOutData.accuracy)}m). Maximum allowed: ${MAX_ACCEPTABLE_ACCURACY}m. Please move to an open area for better GPS signal.`);
-    }
+    // Validate accuracy is provided and acceptable
+    validateAccuracy(clockOutData.accuracy, 'clock-out');
 
     clockOutAccuracyMeters = clockOutData.accuracy;
 

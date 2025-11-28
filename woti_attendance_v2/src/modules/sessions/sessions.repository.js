@@ -10,6 +10,11 @@ const logger = require('../../utils/logger');
 
 /**
  * Hash a token for storage
+ * Uses SHA-256 for token fingerprinting. This is acceptable for session tokens
+ * because:
+ * 1. JWTs are already cryptographically random and long enough to resist brute force
+ * 2. We're creating a fingerprint for lookup, not storing a secret
+ * 3. The original token is never stored, only the hash
  * @param {string} token - JWT token to hash
  * @returns {string} SHA-256 hash of the token
  */

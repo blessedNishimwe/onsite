@@ -143,9 +143,18 @@ const validateGpsCoordinates = (lat, lon) => {
   }
 
   // Check for suspiciously round numbers (potential fake coordinates)
-  // Real GPS coordinates rarely have exactly 0 decimal places
-  const latDecimals = (lat.toString().split('.')[1] || '').length;
-  const lonDecimals = (lon.toString().split('.')[1] || '').length;
+  // Real GPS coordinates typically have more than 3 decimal places
+  const getDecimalPlaces = (num) => {
+    const str = num.toFixed(10); // Use fixed notation to avoid exponential
+    const parts = str.split('.');
+    if (parts.length < 2) return 0;
+    // Count significant decimal places (ignore trailing zeros)
+    const decimals = parts[1].replace(/0+$/, '');
+    return decimals.length;
+  };
+  
+  const latDecimals = getDecimalPlaces(lat);
+  const lonDecimals = getDecimalPlaces(lon);
   
   if (latDecimals < 3 && lonDecimals < 3 && lat !== 0 && lon !== 0) {
     return {
