@@ -13,7 +13,7 @@ const MAX_SPEED_KMH = 150;
 
 // GPS accuracy thresholds in meters
 const MIN_SUSPICIOUS_ACCURACY = 1; // Too perfect (possibly fake)
-const MAX_ACCEPTABLE_ACCURACY = 500; // Too inaccurate
+const MAX_ACCEPTABLE_ACCURACY = 100; // Maximum acceptable accuracy for clock-in
 
 /**
  * Detect impossible travel speed between two locations

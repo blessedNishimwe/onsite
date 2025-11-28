@@ -75,7 +75,13 @@ const getMonthlyTimesheet = async (userId, month, year) => {
         activityDescription: attendance.activity_description,
         hasGps: !!(attendance.clock_in_latitude && attendance.clock_in_longitude),
         facilityName: attendance.facility_name,
-        status: attendance.status
+        status: attendance.status,
+        // Validation and GPS data
+        validationStatus: attendance.validation_status || 'verified',
+        clockInAccuracyMeters: attendance.clock_in_accuracy_meters,
+        clockOutAccuracyMeters: attendance.clock_out_accuracy_meters,
+        clockInDistanceMeters: attendance.clock_in_distance_meters,
+        clockOutDistanceMeters: attendance.clock_out_distance_meters
       } : null
     });
   }
@@ -94,6 +100,12 @@ const getMonthlyTimesheet = async (userId, month, year) => {
   ).length;
   const missingActivity = monthData.filter(d => 
     d.attendance && d.attendance.clockIn && !d.attendance.activityId
+  ).length;
+  const flaggedRecords = monthData.filter(d => 
+    d.attendance && d.attendance.validationStatus === 'flagged'
+  ).length;
+  const unverifiedRecords = monthData.filter(d => 
+    d.attendance && d.attendance.validationStatus === 'unverified'
   ).length;
 
   logger.info('Monthly timesheet retrieved', {
@@ -125,7 +137,9 @@ const getMonthlyTimesheet = async (userId, month, year) => {
       daysAttended,
       totalHours: totalHours.toFixed(2),
       missingClockOut,
-      missingActivity
+      missingActivity,
+      flaggedRecords,
+      unverifiedRecords
     }
   };
 };

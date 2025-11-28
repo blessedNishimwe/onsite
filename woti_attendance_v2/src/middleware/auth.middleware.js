@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const authConfig = require('../config/auth');
 const logger = require('../utils/logger');
 const { query } = require('../config/database');
+const sessionsRepository = require('../modules/sessions/sessions.repository');
 
 /**
  * Verify JWT token and attach user to request
@@ -52,6 +53,37 @@ const authenticate = async (req, res, next) => {
       }
       
       throw jwtError;
+    }
+    
+    // Validate session is active (if session management is enabled)
+    try {
+      const session = await sessionsRepository.findActiveSessionByToken(token);
+      
+      if (!session) {
+        // Session not found or invalidated - user logged in elsewhere
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Session expired. Please log in again.',
+          code: 'SESSION_INVALIDATED'
+        });
+      }
+      
+      // Check if user is still active
+      if (!session.user_is_active) {
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Account deactivated. Please contact administrator.',
+          code: 'ACCOUNT_DEACTIVATED'
+        });
+      }
+      
+      // Attach session info to request
+      req.sessionId = session.id;
+    } catch (sessionError) {
+      // If session table doesn't exist yet (migration not run), continue without session validation
+      if (sessionError.code !== '42P01') { // 42P01 = undefined_table
+        logger.warn('Session validation error:', sessionError.message);
+      }
     }
     
     // Fetch user from database

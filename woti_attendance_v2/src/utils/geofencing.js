@@ -83,13 +83,13 @@ const validateGeofence = async (facilityId, userLatitude, userLongitude) => {
       const facility = fallbackResult.rows[0];
 
       if (!facility.latitude || !facility.longitude) {
-        // No facility coordinates, allow clock-in (geofencing disabled)
-        logger.warn('Facility has no coordinates, geofencing skipped', { facilityId });
+        // No facility coordinates - BLOCK clock-in for security
+        logger.warn('Facility has no coordinates, geofencing blocked', { facilityId });
         return {
-          isWithinGeofence: true,
+          isWithinGeofence: false,
           distance: null,
           maxRadius: facility.geofence_radius,
-          warning: 'Facility coordinates not configured, geofencing skipped'
+          error: 'Facility location not configured. Please contact your administrator.'
         };
       }
 
@@ -164,11 +164,12 @@ const validateGeofence = async (facilityId, userLatitude, userLongitude) => {
       const facility = fallbackResult.rows[0];
 
       if (!facility.latitude || !facility.longitude) {
+        // No facility coordinates - BLOCK clock-in for security
         return {
-          isWithinGeofence: true,
+          isWithinGeofence: false,
           distance: null,
           maxRadius: facility.geofence_radius,
-          warning: 'Facility coordinates not configured, geofencing skipped'
+          error: 'Facility location not configured. Please contact your administrator.'
         };
       }
 

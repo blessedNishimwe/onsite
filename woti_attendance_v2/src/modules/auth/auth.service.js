@@ -10,6 +10,8 @@ const { query, getClient } = require('../../config/database');
 const authConfig = require('../../config/auth');
 const { hashPassword, verifyPassword } = require('./password.service');
 const logger = require('../../utils/logger');
+const sessionsRepository = require('../sessions/sessions.repository');
+const devicesRepository = require('../devices/devices.repository');
 
 /**
  * Generate JWT access token
@@ -46,6 +48,47 @@ const generateRefreshToken = (user) => {
   return jwt.sign(payload, authConfig.refresh.secret, {
     expiresIn: authConfig.refresh.expiresIn
   });
+};
+
+/**
+ * Calculate token expiration date
+ * @returns {Date} Expiration date
+ */
+const getTokenExpirationDate = () => {
+  // Parse expiresIn from authConfig (e.g., '7d', '24h', '1d', '30m')
+  const expiresIn = authConfig.jwt.expiresIn || '7d';
+  const match = expiresIn.match(/^(\d+)([dhms])$/i);
+  
+  if (!match) {
+    // Log warning and default to 7 days if parsing fails
+    logger.warn('Could not parse JWT expiresIn, defaulting to 7 days', { expiresIn });
+    return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  }
+  
+  const value = parseInt(match[1]);
+  const unit = match[2].toLowerCase();
+  
+  let ms = 0;
+  switch (unit) {
+  case 'd':
+    ms = value * 24 * 60 * 60 * 1000;
+    break;
+  case 'h':
+    ms = value * 60 * 60 * 1000;
+    break;
+  case 'm':
+    ms = value * 60 * 1000;
+    break;
+  case 's':
+    ms = value * 1000;
+    break;
+  default:
+    // This shouldn't happen due to regex, but add safety
+    logger.warn('Unknown time unit in JWT expiresIn, defaulting to 7 days', { unit, expiresIn });
+    ms = 7 * 24 * 60 * 60 * 1000;
+  }
+  
+  return new Date(Date.now() + ms);
 };
 
 /**
@@ -176,9 +219,10 @@ const register = async (userData, adminUser) => {
  * @param {string} password - User password
  * @param {string} ipAddress - Request IP address
  * @param {string} userAgent - Request user agent
+ * @param {string} deviceFingerprint - Optional device fingerprint for session tracking
  * @returns {Promise<Object>} User and token
  */
-const login = async (email, password, ipAddress, userAgent) => {
+const login = async (email, password, ipAddress, userAgent, deviceFingerprint = null) => {
   try {
     // Fetch user with full details
     const result = await query(
@@ -242,6 +286,34 @@ const login = async (email, password, ipAddress, userAgent) => {
       throw new Error('Invalid credentials');
     }
     
+    // Generate tokens
+    const token = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    
+    // Invalidate all previous sessions for this user (enforce single session)
+    await sessionsRepository.invalidateUserSessions(user.id, 'new_login');
+    
+    // Create new session
+    await sessionsRepository.createSession({
+      user_id: user.id,
+      token,
+      device_fingerprint: deviceFingerprint,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+      expires_at: getTokenExpirationDate()
+    });
+    
+    // Register device if fingerprint provided
+    if (deviceFingerprint) {
+      await devicesRepository.registerDevice({
+        user_id: user.id,
+        device_fingerprint: deviceFingerprint,
+        device_id: null,
+        browser: extractBrowser(userAgent),
+        platform: extractPlatform(userAgent)
+      });
+    }
+    
     // Update last login time
     await query(
       'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
@@ -274,13 +346,47 @@ const login = async (email, password, ipAddress, userAgent) => {
     
     return {
       user,
-      token: generateAccessToken(user),
-      refreshToken: generateRefreshToken(user)
+      token,
+      refreshToken
     };
   } catch (error) {
     logger.error('Login failed:', error);
     throw error;
   }
+};
+
+/**
+ * Extract browser name from user agent
+ * @param {string} userAgent - User agent string
+ * @returns {string|null} Browser name
+ */
+const extractBrowser = (userAgent) => {
+  if (!userAgent) return null;
+  
+  if (userAgent.includes('Chrome')) return 'Chrome';
+  if (userAgent.includes('Firefox')) return 'Firefox';
+  if (userAgent.includes('Safari')) return 'Safari';
+  if (userAgent.includes('Edge')) return 'Edge';
+  if (userAgent.includes('Opera')) return 'Opera';
+  
+  return 'Other';
+};
+
+/**
+ * Extract platform from user agent
+ * @param {string} userAgent - User agent string
+ * @returns {string|null} Platform name
+ */
+const extractPlatform = (userAgent) => {
+  if (!userAgent) return null;
+  
+  if (userAgent.includes('Windows')) return 'Windows';
+  if (userAgent.includes('Mac')) return 'MacOS';
+  if (userAgent.includes('Linux')) return 'Linux';
+  if (userAgent.includes('Android')) return 'Android';
+  if (userAgent.includes('iPhone') || userAgent.includes('iPad')) return 'iOS';
+  
+  return 'Other';
 };
 
 /**

@@ -86,6 +86,86 @@ const isValidCoordinates = (lat, lon) => {
   );
 };
 
+/**
+ * Validate GPS coordinates with enhanced checks
+ * Checks for null island, valid ranges, and precision
+ * @param {number} lat - Latitude
+ * @param {number} lon - Longitude
+ * @returns {Object} Validation result with isValid flag and error message
+ */
+const validateGpsCoordinates = (lat, lon) => {
+  // Check if coordinates are provided
+  if (lat === undefined || lat === null || lon === undefined || lon === null) {
+    return {
+      isValid: false,
+      error: 'GPS coordinates are required for clock-in'
+    };
+  }
+
+  // Check if coordinates are numbers
+  if (typeof lat !== 'number' || typeof lon !== 'number') {
+    return {
+      isValid: false,
+      error: 'GPS coordinates must be valid numbers'
+    };
+  }
+
+  // Check if coordinates are finite numbers
+  if (!isFinite(lat) || !isFinite(lon)) {
+    return {
+      isValid: false,
+      error: 'GPS coordinates must be finite numbers'
+    };
+  }
+
+  // Check valid ranges
+  if (lat < -90 || lat > 90) {
+    return {
+      isValid: false,
+      error: 'Latitude must be between -90 and 90 degrees'
+    };
+  }
+
+  if (lon < -180 || lon > 180) {
+    return {
+      isValid: false,
+      error: 'Longitude must be between -180 and 180 degrees'
+    };
+  }
+
+  // Null Island detection (0,0 coordinates)
+  // Coordinates very close to 0,0 are suspicious as this is "Null Island"
+  if (Math.abs(lat) < 0.01 && Math.abs(lon) < 0.01) {
+    return {
+      isValid: false,
+      error: 'Invalid GPS coordinates detected (Null Island). Please enable GPS and try again.'
+    };
+  }
+
+  // Check for suspiciously round numbers (potential fake coordinates)
+  // Real GPS coordinates typically have more than 3 decimal places
+  const getDecimalPlaces = (num) => {
+    const str = num.toFixed(10); // Use fixed notation to avoid exponential
+    const parts = str.split('.');
+    if (parts.length < 2) return 0;
+    // Count significant decimal places (ignore trailing zeros)
+    const decimals = parts[1].replace(/0+$/, '');
+    return decimals.length;
+  };
+  
+  const latDecimals = getDecimalPlaces(lat);
+  const lonDecimals = getDecimalPlaces(lon);
+  
+  if (latDecimals < 3 && lonDecimals < 3 && lat !== 0 && lon !== 0) {
+    return {
+      isValid: true,
+      warning: 'GPS coordinates have low precision. Please ensure GPS is enabled.'
+    };
+  }
+
+  return { isValid: true };
+};
+
 // Role constants
 const ALL_ROLES = ['tester', 'data_clerk', 'focal', 'ddo', 'supervisor', 'backstopper', 'admin'];
 const SELF_REGISTRATION_ALLOWED_ROLES = ['tester', 'data_clerk', 'focal', 'ddo', 'supervisor'];
@@ -203,6 +283,7 @@ module.exports = {
   validatePassword,
   isValidUUID,
   isValidCoordinates,
+  validateGpsCoordinates,
   isValidRole,
   isValidSelfRegistrationRole,
   isValidFacilityType,
